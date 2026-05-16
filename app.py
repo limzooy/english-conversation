@@ -22,8 +22,11 @@ _db = None
 def get_db():
     global _db
     if _db is None and os.environ.get("SPREADSHEET_ID"):
-        from sheets_db import SheetsDB
-        _db = SheetsDB(os.environ["SPREADSHEET_ID"])
+        try:
+            from sheets_db import SheetsDB
+            _db = SheetsDB(os.environ["SPREADSHEET_ID"])
+        except Exception as e:
+            app.logger.error(f"Sheets DB init failed: {e}")
     return _db
 
 BASE_DIR = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
@@ -413,6 +416,26 @@ def get_next_phrase_data():
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
+@app.route("/api/debug")
+def api_debug():
+    db_status = "not configured"
+    db_error = None
+    if os.environ.get("SPREADSHEET_ID"):
+        try:
+            db = get_db()
+            db_status = "connected" if db else "init failed (check logs)"
+        except Exception as e:
+            db_error = str(e)
+            db_status = "error"
+    return jsonify({
+        "spreadsheet_id_set": bool(os.environ.get("SPREADSHEET_ID")),
+        "credentials_set": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON")),
+        "openai_key_set": bool(os.environ.get("OPENAI_API_KEY")),
+        "db_status": db_status,
+        "db_error": db_error,
+    })
+
 
 @app.route("/")
 def index():
