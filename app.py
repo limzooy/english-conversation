@@ -452,7 +452,12 @@ def chat():
 
 @app.route("/api/daily-words")
 def api_daily_words():
-    return jsonify(get_daily_words())
+    try:
+        return jsonify(get_daily_words())
+    except Exception as e:
+        import traceback
+        app.logger.error(f"daily-words error: {traceback.format_exc()}")
+        return jsonify({"error": str(e), "detail": traceback.format_exc()}), 500
 
 
 @app.route("/api/calendar")
