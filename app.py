@@ -108,7 +108,6 @@ def load_shown_words() -> list:
     if db:
         cached = db.get_cache("shown_words")
         return json.loads(cached) if cached else []
-    import json
     if os.path.exists(SHOWN_WORDS_FILE):
         with open(SHOWN_WORDS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -122,7 +121,6 @@ def save_shown_words(new_words: list):
     if db:
         db.set_cache("shown_words", json.dumps(combined, ensure_ascii=False))
         return
-    import json
     with open(SHOWN_WORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(combined, f, ensure_ascii=False)
 
@@ -173,7 +171,6 @@ Respond ONLY in this JSON format:
             response_format={"type": "json_object"},
             temperature=0.9,
         )
-        import json
         data = json.loads(response.choices[0].message.content)
     except Exception:
         data = {
