@@ -2,6 +2,7 @@
 
 import os
 import csv
+import json
 import uuid
 import datetime
 import tempfile
@@ -13,7 +14,17 @@ from openai import OpenAI
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+# Google Sheets DB (SPREADSHEET_ID 환경변수가 있을 때만 활성화)
+_db = None
+
+def get_db():
+    global _db
+    if _db is None and os.environ.get("SPREADSHEET_ID"):
+        from sheets_db import SheetsDB
+        _db = SheetsDB(os.environ["SPREADSHEET_ID"])
+    return _db
 
 BASE_DIR = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 CONVERSATION_CSV = os.path.join(BASE_DIR, "conversation_history.csv")
@@ -53,6 +64,9 @@ init_csvs()
 
 
 def get_conversations_for_date(date_str):
+    db = get_db()
+    if db:
+        return db.get_conversations_for_date(date_str)
     rows = []
     try:
         with open(CONVERSATION_CSV, "r", encoding="utf-8-sig") as f:
@@ -66,6 +80,9 @@ def get_conversations_for_date(date_str):
 
 
 def get_dates_with_conversations():
+    db = get_db()
+    if db:
+        return db.get_dates_with_conversations()
     dates = set()
     try:
         with open(CONVERSATION_CSV, "r", encoding="utf-8-sig") as f:
@@ -84,7 +101,10 @@ SHOWN_WORDS_FILE = os.path.join(BASE_DIR, "shown_words.json")
 
 
 def load_shown_words() -> list:
-    """이전에 나온 단어 목록 반환"""
+    db = get_db()
+    if db:
+        cached = db.get_cache("shown_words")
+        return json.loads(cached) if cached else []
     import json
     if os.path.exists(SHOWN_WORDS_FILE):
         with open(SHOWN_WORDS_FILE, "r", encoding="utf-8") as f:
@@ -93,21 +113,30 @@ def load_shown_words() -> list:
 
 
 def save_shown_words(new_words: list):
-    """오늘 나온 단어를 누적 저장"""
-    import json
+    db = get_db()
     existing = load_shown_words()
     combined = list(set(existing + [w.lower() for w in new_words]))
+    if db:
+        db.set_cache("shown_words", json.dumps(combined, ensure_ascii=False))
+        return
+    import json
     with open(SHOWN_WORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(combined, f, ensure_ascii=False)
 
 
 def get_daily_words():
     """오늘 날짜의 비즈니스 단어/표현 반환 (하루 1회 생성 후 캐시, 중복 제외)"""
-    import json
     today = datetime.date.today().isoformat()
 
     # 캐시 확인
-    if os.path.exists(DAILY_WORDS_FILE):
+    db = get_db()
+    if db:
+        cached_date = db.get_cache("daily_words_date")
+        if cached_date == today:
+            cached_data = db.get_cache("daily_words_json")
+            if cached_data:
+                return json.loads(cached_data)
+    elif os.path.exists(DAILY_WORDS_FILE):
         with open(DAILY_WORDS_FILE, "r", encoding="utf-8") as f:
             cached = json.load(f)
         if cached.get("date") == today:
@@ -159,18 +188,23 @@ Respond ONLY in this JSON format:
         }
 
     # 오늘 나온 단어 누적 저장 (중복 방지용)
-    import json
     today_words = [w["word"] for w in data.get("words", [])]
     save_shown_words(today_words)
 
     # 캐시 저장
-    with open(DAILY_WORDS_FILE, "w", encoding="utf-8") as f:
-        json.dump({"date": today, "data": data}, f, ensure_ascii=False)
+    if db:
+        db.set_cache("daily_words_date", today)
+        db.set_cache("daily_words_json", json.dumps(data, ensure_ascii=False))
+    else:
+        with open(DAILY_WORDS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"date": today, "data": data}, f, ensure_ascii=False)
     return data
 
 
 def load_recent_context(n=30):
-    """CSV에서 최근 대화를 로드해 AI 컨텍스트 메시지 목록으로 변환"""
+    db = get_db()
+    if db:
+        return db.load_recent_context(n)
     rows = []
     try:
         with open(CONVERSATION_CSV, "r", encoding="utf-8-sig") as f:
@@ -191,6 +225,9 @@ def load_recent_context(n=30):
 
 
 def get_memo(date_str):
+    db = get_db()
+    if db:
+        return db.get_memo(date_str)
     try:
         with open(MEMO_CSV, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
@@ -203,6 +240,10 @@ def get_memo(date_str):
 
 
 def save_memo(date_str, memo_text):
+    db = get_db()
+    if db:
+        db.save_memo(date_str, memo_text)
+        return
     rows = []
     found = False
     try:
@@ -226,13 +267,17 @@ def save_memo(date_str, memo_text):
 def get_training_status():
     """현재 훈련 day 번호와 오늘 진행 상황 반환"""
     today = datetime.date.today().isoformat()
-    rows = []
-    try:
-        with open(TRAINING_CSV, "r", encoding="utf-8-sig") as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-    except FileNotFoundError:
-        pass
+    db = get_db()
+    if db:
+        rows = db.get_training_rows()
+    else:
+        rows = []
+        try:
+            with open(TRAINING_CSV, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+        except FileNotFoundError:
+            pass
 
     completed_days = sum(1 for r in rows if int(r.get("완료문장수", 0)) >= 8)
     today_row = next((r for r in rows if r["날짜"] == today), None)
@@ -261,6 +306,10 @@ def get_training_status():
 
 
 def update_training_progress(date_str: str, day_number: int, sentences_done: int, correct_count: int):
+    db = get_db()
+    if db:
+        db.update_training_progress(date_str, day_number, sentences_done, correct_count)
+        return
     rows = []
     found = False
     try:
@@ -283,7 +332,9 @@ def update_training_progress(date_str: str, day_number: int, sentences_done: int
 
 
 def load_correct_sentences(day_number: int) -> list:
-    """해당 day에서 이미 맞힌 한국어 문장 목록 반환"""
+    db = get_db()
+    if db:
+        return db.load_correct_sentences(day_number)
     sentences = []
     try:
         with open(TRAINING_SENTENCES_CSV, "r", encoding="utf-8-sig") as f:
@@ -297,10 +348,12 @@ def load_correct_sentences(day_number: int) -> list:
 
 
 def save_sentence_result(day_number: int, korean_sentence: str, evaluation: str):
-    """문장 결과 저장 (correct 만 중복 방지 대상)"""
+    db = get_db()
+    if db:
+        db.save_sentence_result(day_number, korean_sentence, evaluation)
+        return
     if not korean_sentence:
         return
-    # 이미 correct로 저장된 문장이면 skip
     existing = load_correct_sentences(day_number)
     if korean_sentence in existing:
         return
@@ -310,7 +363,9 @@ def save_sentence_result(day_number: int, korean_sentence: str, evaluation: str)
 
 
 def load_completed_phrases() -> list:
-    """완료된 표현 문자열 목록 반환"""
+    db = get_db()
+    if db:
+        return db.load_completed_phrases()
     completed = []
     try:
         with open(PHRASE_PROGRESS_CSV, "r", encoding="utf-8-sig") as f:
@@ -323,7 +378,10 @@ def load_completed_phrases() -> list:
 
 
 def save_phrase_complete(phrase: str, category: str):
-    """표현 완료 저장"""
+    db = get_db()
+    if db:
+        db.save_phrase_complete(phrase, category)
+        return
     completed = load_completed_phrases()
     if phrase in completed:
         return
@@ -549,7 +607,6 @@ def api_chat():
     current_korean_prompt = data.get("current_korean_prompt", "")
 
     from ai_handler import AIHandler
-    from local_saver import LocalSaver
 
     ai = AIHandler(client)
     try:
@@ -564,17 +621,31 @@ def api_chat():
     session.modified = True
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    saver = LocalSaver(directory=BASE_DIR)
-    saver.append_row(
-        session_id=session_id,
-        timestamp=timestamp,
-        user_sentence=user_message,
-        corrected_sentence=result.get("corrected", ""),
-        correction_explanation=result.get("explanation", ""),
-        ai_response=result["response"],
-        pronunciation_tip=result.get("pronunciation_tip", ""),
-        has_correction=result["has_correction"],
-    )
+    db = get_db()
+    if db:
+        db.append_conversation(
+            session_id=session_id,
+            timestamp=timestamp,
+            user_sentence=user_message,
+            corrected_sentence=result.get("corrected", ""),
+            correction_explanation=result.get("explanation", ""),
+            ai_response=result["response"],
+            pronunciation_tip=result.get("pronunciation_tip", ""),
+            has_correction=result["has_correction"],
+        )
+    else:
+        from local_saver import LocalSaver
+        saver = LocalSaver(directory=BASE_DIR)
+        saver.append_row(
+            session_id=session_id,
+            timestamp=timestamp,
+            user_sentence=user_message,
+            corrected_sentence=result.get("corrected", ""),
+            correction_explanation=result.get("explanation", ""),
+            ai_response=result["response"],
+            pronunciation_tip=result.get("pronunciation_tip", ""),
+            has_correction=result["has_correction"],
+        )
 
     if mode == "training" and training_day_info:
         new_sentences_done = training_sentences_done + 1

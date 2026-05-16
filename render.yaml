@@ -7,9 +7,9 @@ services:
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: DATA_DIR
-        value: /data
-    disk:
-      name: english-data
-      mountPath: /data
-      sizeGB: 1
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
