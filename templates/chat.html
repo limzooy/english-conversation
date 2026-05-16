@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Conversation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f8;
+      color: #2d3748;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* NAV */
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      z-index: 10;
+    }
+    .nav-logo { font-size: 17px; font-weight: 700; color: #6c63ff; }
+    .nav-logo span { color: #2d3748; }
+    .nav-back {
+      color: #718096; text-decoration: none; font-size: 14px;
+      display: flex; align-items: center; gap: 4px; transition: color 0.2s;
+    }
+    .nav-back:hover { color: #6c63ff; }
+
+    /* MODE TOGGLE in nav */
+    .mode-toggle {
+      display: flex;
+      background: #f0f2f8;
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .mode-toggle-btn {
+      padding: 5px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: transparent;
+      color: #718096;
+      transition: all 0.2s;
+    }
+    .mode-toggle-btn.active {
+      background: #fff;
+      color: #6c63ff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* SCENARIO BANNER */
+    .scenario-banner {
+      display: none;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      color: #fff;
+      padding: 10px 24px;
+      flex-shrink: 0;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .scenario-banner.visible { display: flex; }
+    .scenario-banner-emoji { font-size: 22px; }
+    .scenario-banner-info { flex: 1; }
+    .scenario-banner-title { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+    .scenario-banner-roles { opacity: 0.9; font-size: 12px; }
+    .scenario-change-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .scenario-change-btn:hover { background: rgba(255,255,255,0.3); }
+
+    /* LAYOUT */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* CHAT MAIN */
+    .chat-main {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; background: #f0f2f8;
+    }
+    .messages {
+      flex: 1; overflow-y: auto; padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+    /* MESSAGE BUBBLES */
+    .msg { display: flex; gap: 10px; max-width: 75%; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.ai { align-self: flex-start; }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; margin-top: 2px;
+    }
+    .msg.ai .avatar { background: linear-gradient(135deg, #6c63ff, #a78bfa); }
+    .msg.user .avatar { background: linear-gradient(135deg, #48d1cc, #38b2ac); }
+    .bubble-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .bubble {
+      padding: 12px 16px; border-radius: 16px;
+      font-size: 15px; line-height: 1.6;
+    }
+    .msg.ai .bubble {
+      background: #fff; border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    .msg.user .bubble {
+      background: #6c63ff; color: #fff; border-bottom-right-radius: 4px;
+    }
+
+    .correction-card {
+      background: #fff; border-radius: 12px; padding: 12px 14px;
+      font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-left: 3px solid #f6ad55;
+    }
+    .correction-label {
+      font-size: 11px; font-weight: 700; color: #f6ad55;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .correction-original { color: #e53e3e; text-decoration: line-through; margin-bottom: 3px; }
+    .correction-fixed { color: #38a169; font-weight: 600; margin-bottom: 6px; }
+    .correction-explain { color: #718096; font-size: 12px; line-height: 1.5; }
+    .tip-card {
+      background: #ebf8ff; border-radius: 10px; padding: 8px 12px;
+      font-size: 12px; color: #2c5282;
+    }
+    .tip-card strong { color: #3182ce; }
+
+    /* HINT + TRANSLATION BAR */
+    .helper-bar {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      border-top: 1px solid #e2e8f0;
+    }
+    .hint-bar {
+      display: none;
+      background: #fef9c3;
+      border-bottom: 1px solid #fde68a;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: #78350f;
+      align-items: center;
+      gap: 8px;
+    }
+    .hint-bar.visible { display: flex; }
+    .hint-bar strong { color: #92400e; }
+
+    .translate-bar {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      padding: 7px 16px;
+      gap: 10px;
+    }
+    .translate-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: #f0f2f8;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .translate-btn:hover { background: #ede9fe; border-color: #6c63ff; color: #6c63ff; }
+    .translate-btn.active { background: #6c63ff; border-color: #6c63ff; color: #fff; }
+    .translate-text {
+      display: none;
+      font-size: 13px;
+      color: #2d3748;
+      line-height: 1.6;
+      flex: 1;
+    }
+    .translate-text.visible { display: block; }
+    .translate-loading { color: #a0aec0; font-style: italic; }
+
+    /* TYPING INDICATOR */
+    .typing {
+      display: flex; align-items: center; gap: 4px;
+      padding: 14px 16px; background: #fff;
+      border-radius: 16px; border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07); width: fit-content;
+    }
+    .typing span {
+      width: 7px; height: 7px; background: #a0aec0;
+      border-radius: 50%; animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* INPUT AREA */
+    .input-area {
+      background: #fff; border-top: 1px solid #e2e8f0;
+      padding: 16px 24px; display: flex; gap: 10px;
+      align-items: flex-end; flex-shrink: 0;
+    }
+    .input-wrap {
+      flex: 1; display: flex; align-items: center;
+      background: #f8f9ff; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; padding: 0 14px; transition: border-color 0.2s;
+    }
+    .input-wrap:focus-within { border-color: #6c63ff; }
+    .msg-input {
+      flex: 1; border: none; background: transparent;
+      padding: 12px 0; font-size: 15px; font-family: inherit;
+      color: #2d3748; resize: none; outline: none;
+      max-height: 120px; line-height: 1.5;
+    }
+    .send-btn {
+      background: #6c63ff; color: #fff; border: none;
+      width: 44px; height: 44px; border-radius: 10px;
+      cursor: pointer; font-size: 18px;
+      transition: background 0.2s, transform 0.1s;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .send-btn:hover { background: #5a52e0; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+    .mic-btn {
+      background: #f0f2f8; color: #6c63ff;
+      border: 1.5px solid #e2e8f0;
+      width: 44px; height: 44px; border-radius: 10px;
+      cursor: pointer; font-size: 20px; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .mic-btn:hover { background: #ede9fe; border-color: #6c63ff; }
+    .mic-btn.recording {
+      background: #fed7d7; border-color: #fc8181; color: #e53e3e;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229,62,62,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(229,62,62,0); }
+    }
+    .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; animation: none; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 320px; background: #fff;
+      border-left: 1px solid #e2e8f0;
+      display: flex; flex-direction: column;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid #f0f2f8; flex-shrink: 0; }
+    .sidebar-header h3 { font-size: 14px; font-weight: 700; color: #2d3748; margin-bottom: 2px; }
+    .sidebar-date { font-size: 12px; color: #a0aec0; }
+    .sidebar-body {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .sidebar-body::-webkit-scrollbar { width: 3px; }
+    .sidebar-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+    .sidebar-item {
+      background: #f8f9ff; border-radius: 10px; padding: 12px;
+      border-left: 3px solid #6c63ff; font-size: 13px;
+      animation: fadeIn 0.25s ease;
+    }
+    .sidebar-time { font-size: 11px; color: #a0aec0; margin-bottom: 6px; }
+    .sidebar-user { color: #2d3748; margin-bottom: 4px; }
+    .sidebar-user strong { color: #6c63ff; }
+    .sidebar-corrected { color: #e53e3e; font-size: 12px; margin-bottom: 2px; }
+    .sidebar-arrow { color: #38a169; font-weight: 700; }
+    .sidebar-ai { color: #718096; font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; }
+    .sidebar-ai strong { color: #48d1cc; }
+    .sidebar-empty { text-align: center; color: #a0aec0; padding: 40px 16px; font-size: 13px; }
+    .sidebar-empty .emoji { font-size: 32px; margin-bottom: 8px; }
+    .sidebar-count {
+      background: #6c63ff; color: #fff; font-size: 11px;
+      font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px;
+    }
+
+    /* PHRASE CARD */
+    .phrase-card {
+      display: none;
+      background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+      color: #fff;
+      padding: 12px 24px;
+      flex-shrink: 0;
+      gap: 16px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .phrase-card.visible { display: flex; }
+    .phrase-card-main { flex: 1; }
+    .phrase-card-phrase { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+    .phrase-card-meaning { opacity: 0.85; font-size: 13px; }
+    .phrase-card-badge {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; flex-shrink: 0;
+    }
+
+    /* ── SCENARIO SELECTOR OVERLAY ─────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(15, 15, 30, 0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; backdrop-filter: blur(4px);
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: #fff; border-radius: 20px;
+      width: 880px; max-width: 97vw; max-height: 90vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: modalIn 0.25s ease;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    @keyframes modalIn { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+    /* 모달 헤더 */
+    .modal-header {
+      padding: 20px 24px 16px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+    }
+    .modal-title { font-size: 18px; font-weight: 800; color: #2d3748; margin-bottom: 2px; }
+    .modal-sub { font-size: 13px; color: #718096; }
+
+    /* 모달 바디: 좌측 모드 목록 + 우측 상세 */
+    .modal-body {
+      display: flex; flex: 1; overflow: hidden;
+    }
+
+    /* 좌측 모드 목록 */
+    .mode-list {
+      width: 220px; flex-shrink: 0;
+      border-right: 1px solid #f0f0f0;
+      overflow-y: auto; padding: 12px;
+    }
+    .mode-list-group { font-size: 10px; font-weight: 700; color: #a0aec0;
+      letter-spacing: 0.5px; text-transform: uppercase; padding: 6px 8px 4px; }
+    .mode-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      transition: all 0.15s; margin-bottom: 2px;
+    }
+    .mode-item:hover { background: #f7f5ff; }
+    .mode-item.selected { background: #f0eeff; }
+    .mode-item-emoji { font-size: 18px; flex-shrink: 0; }
+    .mode-item-text { flex: 1; min-width: 0; }
+    .mode-item-title { font-size: 13px; font-weight: 700; color: #2d3748; }
+    .mode-item-desc { font-size: 11px; color: #718096; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mode-item.selected .mode-item-title { color: #6c63ff; }
+
+    /* 우측 상세 패널 */
+    .mode-detail {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; padding: 16px 20px;
+    }
+    .mode-detail-title { font-size: 13px; font-weight: 700; color: #718096; margin-bottom: 10px; flex-shrink: 0; }
+    .mode-detail-desc {
+      font-size: 13px; color: #4a5568; background: #f8f9ff;
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; flex-shrink: 0;
+    }
+
+    /* scenario / situation 그리드 */
+    .scenario-section { display: none; flex: 1; overflow-y: auto; margin-bottom: 12px; }
+    .scenario-section.visible { display: block; }
+    .scenario-section-title { font-size: 12px; font-weight: 700; color: #718096; margin-bottom: 8px; }
+    .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .phrase-cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .scenario-card {
+      border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .scenario-card:hover { border-color: #a78bfa; background: #faf8ff; }
+    .scenario-card.selected { border-color: #6c63ff; background: #f0eeff; }
+    .scenario-card-header { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+    .scenario-card-emoji { font-size: 16px; }
+    .scenario-card-title { font-size: 12px; font-weight: 700; color: #2d3748; }
+    .scenario-card-desc { font-size: 11px; color: #718096; }
+
+    /* 하단 시작 버튼 */
+    .modal-footer { padding: 12px 20px; border-top: 1px solid #f0f0f0; flex-shrink: 0; }
+    .start-btn {
+      width: 100%; padding: 13px; background: #6c63ff; color: #fff;
+      border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .start-btn:hover { background: #5a52e0; }
+    .start-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+    /* 우측 기본 안내 (상세 선택 없을 때) */
+    .mode-detail-placeholder {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: #a0aec0; font-size: 14px; text-align: center;
+    }
+
+    /* 구버전 mode-cards 호환 (혹시 참조되는 곳 대비) */
+    .mode-cards { display: none; }
+
+    /* TRAINING BANNER */
+    .training-banner {
+      display: none;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 10px 16px;
+      font-size: 13px;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .training-banner.visible { display: flex; }
+    .training-banner-day { font-weight: 700; font-size: 14px; }
+    .training-banner-focus { opacity: 0.9; flex: 1; text-align: center; }
+    .training-banner-progress {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+
+    /* KOREAN PROMPT CARD */
+    .korean-prompt-card {
+      display: none;
+      margin: 12px 16px 0;
+      background: #fff8e1;
+      border: 2px solid #ffd54f;
+      border-radius: 12px;
+      padding: 16px;
+      flex-shrink: 0;
+    }
+    .korean-prompt-card.visible { display: block; }
+    .korean-prompt-label {
+      font-size: 11px; color: #f57f17; font-weight: 600;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .korean-prompt-text {
+      font-size: 20px; font-weight: 700; color: #333; margin-bottom: 8px;
+    }
+    .korean-prompt-hint { font-size: 12px; color: #888; }
+
+    /* TRAINING FEEDBACK CARD */
+    .training-feedback-card {
+      background: #f0fff4; border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; border-left: 3px solid #48bb78; line-height: 1.6;
+      color: #276749;
+    }
+    .training-feedback-card.partial { background: #fffbeb; border-left-color: #f6ad55; color: #744210; }
+    .training-feedback-card.incorrect { background: #fff5f5; border-left-color: #fc8181; color: #742a2a; }
+    .training-feedback-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 4px;
+    }
+    .training-correct-answer {
+      margin-top: 6px; padding-top: 6px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      font-size: 12px; color: #4a5568;
+    }
+    .training-correct-answer strong { color: #38a169; }
+
+    /* TRAINING COMPLETION CARD */
+    .training-complete-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; border-radius: 16px; padding: 24px;
+      text-align: center; margin: 8px 0;
+    }
+    .training-complete-card .complete-emoji { font-size: 40px; margin-bottom: 8px; }
+    .training-complete-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .training-complete-card p { font-size: 14px; opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+<!-- 모드 선택 오버레이 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">어떻게 연습할까요?</div>
+      <div class="modal-sub">모드를 선택하고 대화를 시작하세요</div>
+    </div>
+    <div class="modal-body">
+      <!-- 좌측: 모드 목록 -->
+      <div class="mode-list">
+        <div class="mode-list-group">기본</div>
+        <div class="mode-item selected" id="cardFree" onclick="selectMode('free')">
+          <span class="mode-item-emoji">💬</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">자유 회화</div>
+            <div class="mode-item-desc">자유롭게 대화 + 문법 교정</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardBusiness" onclick="selectMode('business')">
+          <span class="mode-item-emoji">💼</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">비즈니스 롤플레이</div>
+            <div class="mode-item-desc">실전 비즈니스 상황 연습</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardPhrase" onclick="selectMode('phrase')">
+          <span class="mode-item-emoji">📖</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">표현 학습</div>
+            <div class="mode-item-desc">비즈니스 표현 섀도잉 연습</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardTraining" onclick="selectMode('training')">
+          <span class="mode-item-emoji">📚</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">기초 훈련</div>
+            <div class="mode-item-desc">30일 한→영 번역 커리큘럼</div>
+          </div>
+        </div>
+        <div class="mode-list-group">학년별</div>
+        <div class="mode-item" id="cardElemLow" onclick="selectMode('elem_low')">
+          <span class="mode-item-emoji">🌱</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">초등 저학년</div>
+            <div class="mode-item-desc">1~3학년 수준 쉬운 회화</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardElemHigh" onclick="selectMode('elem_high')">
+          <span class="mode-item-emoji">🌟</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">초등 고학년</div>
+            <div class="mode-item-desc">4~6학년 수준 다양한 표현</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardMiddle" onclick="selectMode('middle')">
+          <span class="mode-item-emoji">📘</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">중학교</div>
+            <div class="mode-item-desc">일상·취미·의견을 영어로</div>
+          </div>
+        </div>
+        <div class="mode-item" id="cardHigh" onclick="selectMode('high')">
+          <span class="mode-item-emoji">🎓</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">고등학교</div>
+            <div class="mode-item-desc">심화 주제로 유창함 키우기</div>
+          </div>
+        </div>
+        <div class="mode-list-group">특별</div>
+        <div class="mode-item" id="cardRealEnglish" onclick="selectMode('real_english')">
+          <span class="mode-item-emoji">🇺🇸</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">리얼 미국 영어</div>
+            <div class="mode-item-desc">미국인이 실제로 쓰는 표현</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측: 상세 패널 -->
+      <div class="mode-detail">
+        <div class="mode-detail-desc" id="modeDetailDesc">자유롭게 영어로 대화하며 AI가 문법과 표현을 실시간으로 교정해드립니다. 주제 제한 없이 편하게 대화해보세요.</div>
+        <div class="scenario-section" id="scenarioSection">
+          <div class="scenario-section-title">시나리오 선택</div>
+          <div class="scenario-grid" id="scenarioGrid"></div>
+        </div>
+        <div class="scenario-section" id="realEnglishSection">
+          <div class="scenario-section-title">상황 선택</div>
+          <div class="scenario-grid" id="realEnglishGrid"></div>
+        </div>
+        <div class="scenario-section" id="phraseCatSection">
+          <div class="scenario-section-title">카테고리 선택</div>
+          <div class="phrase-cat-grid" id="phraseCatGrid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="start-btn" id="startBtn" onclick="startChat()">시작하기</button>
+    </div>
+  </div>
+</div>
+
+<nav>
+  <a href="/" class="nav-back">&#8592; 달력으로</a>
+  <div class="nav-logo">English <span>Chat</span></div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <button class="mode-toggle-btn" id="phraseListBtn" onclick="showPhraseList()" style="display:none; background:#f0eeff; color:#6c63ff; border:1.5px solid #a78bfa;">내 표현 목록</button>
+    <div class="mode-toggle">
+      <button class="mode-toggle-btn active" id="toggleFree" onclick="switchMode('free')">자유 회화</button>
+      <button class="mode-toggle-btn" id="toggleBusiness" onclick="switchMode('business')">비즈니스</button>
+      <button class="mode-toggle-btn" id="togglePhrase" onclick="switchMode('phrase')">표현 학습</button>
+      <button class="mode-toggle-btn" id="toggleTraining" onclick="switchMode('training')">기초 훈련</button>
+      <button class="mode-toggle-btn" id="toggleElemLow" onclick="switchMode('elem_low')">초등 저학년</button>
+      <button class="mode-toggle-btn" id="toggleElemHigh" onclick="switchMode('elem_high')">초등 고학년</button>
+      <button class="mode-toggle-btn" id="toggleRealEnglish" onclick="switchMode('real_english')">🇺🇸 리얼 영어</button>
+      <button class="mode-toggle-btn" id="toggleMiddle" onclick="switchMode('middle')">중학교</button>
+      <button class="mode-toggle-btn" id="toggleHigh" onclick="switchMode('high')">고등학교</button>
+    </div>
+  </div>
+</nav>
+
+<!-- 표현 카드 (표현 학습 모드) -->
+<div class="phrase-card" id="phraseCard">
+  <div class="phrase-card-main" style="flex:1;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+      <span class="phrase-card-badge" id="phraseCardTag" style="position:static; font-size:11px;">미팅 &amp; 회의</span>
+      <span style="opacity:0.7; font-size:12px;" id="phraseCardProgress"></span>
+    </div>
+    <div class="phrase-card-phrase" id="phraseCardPhrase"></div>
+    <div class="phrase-card-meaning" id="phraseCardMeaning"></div>
+    <div style="opacity:0.75; font-size:12px; margin-top:2px;" id="phraseCardUsage"></div>
+  </div>
+</div>
+
+<!-- 시나리오 배너 (비즈니스 모드) -->
+<div class="scenario-banner" id="scenarioBanner">
+  <div class="scenario-banner-emoji" id="bannerEmoji"></div>
+  <div class="scenario-banner-info">
+    <div class="scenario-banner-title" id="bannerTitle"></div>
+    <div class="scenario-banner-roles" id="bannerRoles"></div>
+  </div>
+  <button class="scenario-change-btn" onclick="showScenarioSelector()">시나리오 변경</button>
+</div>
+
+<!-- 훈련 배너 (기초 훈련 모드) -->
+<div class="training-banner" id="trainingBanner">
+  <span class="training-banner-day" id="trainingDayLabel">Day 1 / 30</span>
+  <span class="training-banner-focus" id="trainingFocusLabel">I am + 형용사/명사</span>
+  <span class="training-banner-progress" id="trainingProgressLabel">0 / 8</span>
+</div>
+
+<div class="layout">
+  <div class="chat-main">
+    <div class="messages" id="messages"></div>
+
+    <!-- 한국어 프롬프트 카드 (기초 훈련 모드) -->
+    <div class="korean-prompt-card" id="koreanPromptCard">
+      <div class="korean-prompt-label">번역해보세요</div>
+      <div class="korean-prompt-text" id="koreanPromptText"></div>
+      <div class="korean-prompt-hint" id="koreanPromptHint"></div>
+    </div>
+
+    <!-- 힌트 + 번역 바 -->
+    <div class="helper-bar">
+      <div class="hint-bar" id="hintBar">
+        <strong>💡 힌트:</strong>
+        <span id="hintText"></span>
+      </div>
+      <div class="translate-bar">
+        <button class="translate-btn" id="translateBtn" onclick="toggleTranslation()">
+          🇰🇷 번역 보기
+        </button>
+        <div class="translate-text" id="translateText"></div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea class="msg-input" id="msgInput"
+          placeholder="영어로 메시지를 입력하세요..." rows="1"></textarea>
+      </div>
+      <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="음성 입력">🎤</button>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="전송 (Enter)">&#10148;</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h3>오늘의 대화 기록 <span class="sidebar-count" id="sidebarCount">0</span></h3>
+      <div class="sidebar-date" id="sidebarDate"></div>
+    </div>
+    <div class="sidebar-body" id="sidebarBody">
+      <div class="sidebar-empty">
+        <div class="emoji">💬</div>
+        <p>대화를 시작하면<br>여기에 기록이 쌓여요</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 표현 목록 모달 -->
+<div id="phraseListModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; overflow-y:auto; padding:20px;">
+  <div style="background:white; border-radius:16px; max-width:500px; margin:0 auto; padding:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="font-size:18px; font-weight:700;">내 표현 목록</h3>
+      <button onclick="document.getElementById('phraseListModal').style.display='none'" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+    </div>
+    <div id="phraseListProgress" style="margin-bottom:16px; font-size:14px; color:#718096;"></div>
+    <div id="phraseListContent"></div>
+  </div>
+</div>
+
+<script>
+  // ── 상태 ──────────────────────────────────────────────────
+  let currentMode = 'free';
+  let currentScenario = null;
+  let currentPhraseCategory = null;
+  let selectedModeInModal = 'free';
+  let selectedScenarioInModal = null;
+  let selectedPhraseCatInModal = null;
+  let selectedRealEnglishSituation = null;
+  let allScenarios = [];
+  let allPhraseCategories = [];
+  let allRealEnglishSituations = [];
+
+  // 표현 학습 상태
+  let phraseState = { currentPhraseData: null };
+
+  // 기초 훈련 상태
+  let trainingState = {
+    dayInfo: null,
+    sentencesDone: 0,
+    correctCount: 0,
+    currentPrompt: null,
+    sessionComplete: false,
+  };
+
+  // ── 모드 선택 오버레이 ────────────────────────────────────
+  async function loadScenarios() {
+    const [scRes, phRes, reRes] = await Promise.all([
+      fetch('/api/business-scenarios'),
+      fetch('/api/business-phrases'),
+      fetch('/api/real-english-situations'),
+    ]);
+    allScenarios = await scRes.json();
+    allPhraseCategories = await phRes.json();
+    allRealEnglishSituations = await reRes.json();
+    renderScenarioGrid();
+    renderPhraseCatGrid();
+    renderRealEnglishGrid();
+  }
+
+  function renderRealEnglishGrid() {
+    const grid = document.getElementById('realEnglishGrid');
+    grid.innerHTML = '';
+    allRealEnglishSituations.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'scenario-card';
+      card.id = 'real_' + s.id;
+      card.onclick = () => selectRealEnglishSituation(s.id);
+      card.innerHTML = `
+        <div class="scenario-card-header">
+          <span class="scenario-card-emoji">${s.emoji}</span>
+          <span class="scenario-card-title">${s.title}</span>
+        </div>
+        <div class="scenario-card-desc">${s.description}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function selectRealEnglishSituation(id) {
+    selectedRealEnglishSituation = allRealEnglishSituations.find(s => s.id === id) || null;
+    selectedScenarioInModal = selectedRealEnglishSituation;
+    document.querySelectorAll('#realEnglishGrid .scenario-card').forEach(c => c.classList.remove('selected'));
+    if (id) document.getElementById('real_' + id)?.classList.add('selected');
+    updateStartBtn();
+  }
+
+  function showRealEnglishSelector() {
+    document.getElementById('overlay').classList.remove('hidden');
+    selectMode('real_english');
+  }
+
+  function renderPhraseCatGrid() {
+    const grid = document.getElementById('phraseCatGrid');
+    grid.innerHTML = '';
+    allPhraseCategories.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'scenario-card';
+      card.id = 'phrasecat_' + c.category;
+      card.onclick = () => selectPhraseCategory(c.category);
+      card.innerHTML = `
+        <div class="scenario-card-header">
+          <span class="scenario-card-emoji">${c.emoji}</span>
+          <span class="scenario-card-title">${c.title}</span>
+        </div>
+        <div class="scenario-card-desc">${c.phrases.length}개 표현</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function selectPhraseCategory(id) {
+    selectedPhraseCatInModal = allPhraseCategories.find(c => c.category === id) || null;
+    document.querySelectorAll('#phraseCatGrid .scenario-card').forEach(c => c.classList.remove('selected'));
+    if (id) document.getElementById('phrasecat_' + id)?.classList.add('selected');
+    updateStartBtn();
+  }
+
+  function renderScenarioGrid() {
+    const grid = document.getElementById('scenarioGrid');
+    grid.innerHTML = '';
+    allScenarios.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'scenario-card';
+      card.id = 'scenario_' + s.id;
+      card.onclick = () => selectScenario(s.id);
+      card.innerHTML = `
+        <div class="scenario-card-header">
+          <span class="scenario-card-emoji">${s.emoji}</span>
+          <span class="scenario-card-title">${s.title}</span>
+        </div>
+        <div class="scenario-card-desc">${s.description}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  const modeDescriptions = {
+    free: '자유롭게 영어로 대화하며 AI가 문법과 표현을 실시간으로 교정해드립니다. 주제 제한 없이 편하게 대화해보세요.',
+    business: '실전 비즈니스 상황을 롤플레이로 연습합니다. 아래에서 시나리오를 선택하세요.',
+    phrase: '비즈니스에서 자주 쓰이는 표현을 배우고 직접 따라 말하는 섀도잉 방식으로 연습합니다.',
+    training: '한국어 문장을 영어로 말하는 훈련입니다. 30일 커리큘럼으로 기초부터 차근차근 문장 만드는 능력을 키웁니다.',
+    elem_low: '초등학교 1~3학년 수준의 쉬운 영어 회화입니다. 선생님이 쉬운 단어와 짧은 문장으로 재미있게 대화해드려요.',
+    elem_high: '초등학교 4~6학년 수준의 영어 회화입니다. 더 다양한 표현과 주제로 회화 실력을 높여보세요.',
+    middle: '중학생 수준의 영어 회화입니다. 일상, 취미, 의견 등 다양한 주제로 자연스러운 대화를 연습합니다.',
+    high: '고등학생 수준의 심화 영어 회화입니다. 추상적 주제와 복잡한 표현으로 유창함을 키웁니다.',
+    real_english: '미국인이 실제로 쓰는 표현을 배웁니다. 교과서 영어 vs 진짜 영어 차이와 한국인이 자주 하는 실수를 교정합니다. 아래에서 상황을 선택하세요.'
+  };
+
+  function selectMode(mode) {
+    selectedModeInModal = mode;
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high'].forEach(m => {
+      const id = 'card' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('selected', mode === m);
+    });
+    document.getElementById('scenarioSection').classList.toggle('visible', mode === 'business');
+    document.getElementById('realEnglishSection').classList.toggle('visible', mode === 'real_english');
+    document.getElementById('phraseCatSection').classList.remove('visible');
+    const desc = document.getElementById('modeDetailDesc');
+    if (desc) desc.textContent = modeDescriptions[mode] || '';
+    updateStartBtn();
+  }
+
+  function selectScenario(id) {
+    selectedScenarioInModal = allScenarios.find(s => s.id === id) || null;
+    document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+    if (id) document.getElementById('scenario_' + id)?.classList.add('selected');
+    updateStartBtn();
+  }
+
+  function updateStartBtn() {
+    const btn = document.getElementById('startBtn');
+    if (selectedModeInModal === 'business' && !selectedScenarioInModal) {
+      btn.disabled = true;
+      btn.textContent = '시나리오를 선택해주세요';
+    } else if (selectedModeInModal === 'training') {
+      btn.disabled = false;
+      btn.textContent = '기초 훈련 시작하기';
+    } else if (selectedModeInModal === 'phrase') {
+      btn.disabled = false;
+      btn.textContent = '표현 학습 시작하기';
+    } else if (selectedModeInModal === 'elem_low') {
+      btn.disabled = false;
+      btn.textContent = '🌱 초등 저학년 수업 시작!';
+    } else if (selectedModeInModal === 'elem_high') {
+      btn.disabled = false;
+      btn.textContent = '🌟 초등 고학년 수업 시작!';
+    } else if (selectedModeInModal === 'real_english' && !selectedScenarioInModal) {
+      btn.disabled = true;
+      btn.textContent = '상황을 선택해주세요';
+    } else if (selectedModeInModal === 'real_english') {
+      btn.disabled = false;
+      btn.textContent = '🇺🇸 리얼 미국 영어 시작!';
+    } else if (selectedModeInModal === 'middle') {
+      btn.disabled = false;
+      btn.textContent = '📘 중학교 수업 시작!';
+    } else if (selectedModeInModal === 'high') {
+      btn.disabled = false;
+      btn.textContent = '🎓 고등학교 수업 시작!';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '시작하기';
+    }
+  }
+
+  function showScenarioSelector() {
+    document.getElementById('overlay').classList.remove('hidden');
+    selectMode('business');
+  }
+
+  async function startChat() {
+    currentMode = selectedModeInModal;
+    currentScenario = selectedScenarioInModal;
+    currentPhraseCategory = selectedPhraseCatInModal;
+    if (currentMode === 'real_english') currentScenario = selectedRealEnglishSituation;
+    document.getElementById('overlay').classList.add('hidden');
+
+    // Show/hide phrase list button
+    document.getElementById('phraseListBtn').style.display = (currentMode === 'phrase') ? 'inline-block' : 'none';
+
+    // 배너 업데이트
+    updateScenarioBanner();
+
+    // 토글 버튼 동기화
+    document.getElementById('toggleFree').classList.toggle('active', currentMode === 'free');
+    document.getElementById('toggleBusiness').classList.toggle('active', currentMode === 'business');
+    document.getElementById('togglePhrase').classList.toggle('active', currentMode === 'phrase');
+    document.getElementById('toggleTraining').classList.toggle('active', currentMode === 'training');
+    document.getElementById('toggleElemLow').classList.toggle('active', currentMode === 'elem_low');
+    document.getElementById('toggleElemHigh').classList.toggle('active', currentMode === 'elem_high');
+    document.getElementById('toggleRealEnglish').classList.toggle('active', currentMode === 'real_english');
+    document.getElementById('toggleMiddle').classList.toggle('active', currentMode === 'middle');
+    document.getElementById('toggleHigh').classList.toggle('active', currentMode === 'high');
+
+    // 대화 초기화 후 인사말 로드
+    document.getElementById('messages').innerHTML = '';
+    setHint('');
+
+    // 모드별 상태 초기화
+    if (currentMode === 'training') {
+      trainingState = { dayInfo: null, sentencesDone: 0, correctCount: 0, currentPrompt: null, sessionComplete: false };
+      inputEl.disabled = false;
+      inputEl.placeholder = '영어로 번역해서 입력하세요...';
+    } else if (currentMode === 'phrase') {
+      phraseState = { currentPhraseData: null };
+      inputEl.disabled = false;
+      inputEl.placeholder = '표현을 따라 읽거나 문장을 만들어보세요...';
+    } else if (currentMode === 'elem_low') {
+      inputEl.disabled = false;
+      inputEl.placeholder = '선생님 말을 듣고 영어로 대답해보세요! 😊';
+    } else if (currentMode === 'elem_high') {
+      inputEl.disabled = false;
+      inputEl.placeholder = '선생님과 영어로 대화해보세요! 🌟';
+    } else if (currentMode === 'real_english') {
+      inputEl.disabled = false;
+      inputEl.placeholder = '미국인처럼 말해보세요! 🇺🇸';
+    } else if (currentMode === 'middle') {
+      inputEl.disabled = false;
+      inputEl.placeholder = '영어로 자유롭게 이야기해보세요! 📘';
+    } else if (currentMode === 'high') {
+      inputEl.disabled = false;
+      inputEl.placeholder = '영어로 깊이 있는 대화를 나눠보세요! 🎓';
+    } else {
+      inputEl.disabled = false;
+      inputEl.placeholder = '영어로 메시지를 입력하세요...';
+    }
+
+    await loadGreeting();
+  }
+
+  function updateScenarioBanner() {
+    const banner = document.getElementById('scenarioBanner');
+    const phraseCard = document.getElementById('phraseCard');
+    const trainingBanner = document.getElementById('trainingBanner');
+    const koreanPromptCard = document.getElementById('koreanPromptCard');
+
+    // Reset all banners
+    banner.classList.remove('visible');
+    phraseCard.classList.remove('visible');
+    trainingBanner.classList.remove('visible');
+    koreanPromptCard.classList.remove('visible');
+
+    if (currentMode === 'real_english' && currentScenario) {
+      banner.classList.add('visible');
+      document.getElementById('bannerEmoji').textContent = currentScenario.emoji;
+      document.getElementById('bannerTitle').textContent = currentScenario.title + ' — ' + currentScenario.description;
+      document.getElementById('bannerRoles').textContent = '교과서 영어 vs 진짜 미국 영어 🇺🇸';
+    } else if (currentMode === 'business' && currentScenario) {
+      banner.classList.add('visible');
+      document.getElementById('bannerEmoji').textContent = currentScenario.emoji;
+      document.getElementById('bannerTitle').textContent = currentScenario.title + ' — ' + currentScenario.description;
+      document.getElementById('bannerRoles').textContent =
+        `나: ${currentScenario.user_role}  |  AI: ${currentScenario.ai_role}`;
+    } else if (currentMode === 'phrase') {
+      phraseCard.classList.add('visible');
+    } else if (currentMode === 'training') {
+      trainingBanner.classList.add('visible');
+    }
+  }
+
+  function updateTrainingBanner() {
+    if (!trainingState.dayInfo) return;
+    const day = trainingState.dayInfo.day;
+    document.getElementById('trainingDayLabel').textContent = `Day ${day} / 30`;
+    document.getElementById('trainingFocusLabel').textContent = trainingState.dayInfo.focus;
+    document.getElementById('trainingProgressLabel').textContent = `${trainingState.sentencesDone} / 8`;
+  }
+
+  function updateKoreanPromptCard(korean, hint) {
+    const card = document.getElementById('koreanPromptCard');
+    const textEl = document.getElementById('koreanPromptText');
+    const hintEl = document.getElementById('koreanPromptHint');
+    if (korean) {
+      textEl.textContent = korean;
+      hintEl.textContent = hint ? `힌트: ${hint}` : '';
+      card.classList.add('visible');
+    } else {
+      card.classList.remove('visible');
+    }
+  }
+
+  function updatePhraseCard(phraseData, progressNum) {
+    if (currentMode === 'phrase' && phraseData) {
+      document.getElementById('phraseCardPhrase').textContent = `"${phraseData.phrase}"`;
+      document.getElementById('phraseCardMeaning').textContent = phraseData.meaning || '';
+      document.getElementById('phraseCardUsage').textContent = phraseData.usage || '';
+      document.getElementById('phraseCardTag').textContent = phraseData.category_title || '';
+      if (progressNum) {
+        document.getElementById('phraseCardProgress').textContent = progressNum;
+      }
+      document.getElementById('phraseCard').classList.add('visible');
+    }
+  }
+
+  async function showPhraseList() {
+    const res = await fetch('/api/phrase-list');
+    const data = await res.json();
+    document.getElementById('phraseListProgress').textContent = `완료: ${data.completed_count} / ${data.total}`;
+    let html = '';
+    for (const cat of data.categories) {
+      html += `<div style="margin-bottom:16px"><div style="font-weight:700;margin-bottom:8px">${cat.emoji} ${cat.title}</div>`;
+      for (const p of cat.phrases) {
+        html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #f7fafc">
+          <span style="font-size:16px;flex-shrink:0">${p.completed ? '✅' : '○'}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px">${p.phrase}</div>
+            <div style="font-size:12px;color:#718096">${p.meaning}</div>
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+    document.getElementById('phraseListContent').innerHTML = html;
+    document.getElementById('phraseListModal').style.display = 'block';
+  }
+
+  // nav 토글로 모드 전환
+  function switchMode(mode) {
+    selectedModeInModal = mode;
+    selectedScenarioInModal = null;
+    selectedPhraseCatInModal = null;
+    // Show/hide phrase list button
+    document.getElementById('phraseListBtn').style.display = (mode === 'phrase') ? 'inline-block' : 'none';
+    if (mode === 'business') {
+      showScenarioSelector();
+      selectMode(mode);
+    } else if (mode === 'phrase') {
+      // phrase 모드는 오버레이 없이 바로 시작
+      selectedModeInModal = 'phrase';
+      startChat();
+    } else if (mode === 'training') {
+      startChat();
+    } else if (mode === 'real_english') {
+      showRealEnglishSelector();
+      selectMode(mode);
+    } else if (mode === 'elem_low' || mode === 'elem_high' || mode === 'middle' || mode === 'high') {
+      startChat();
+    } else {
+      startChat();
+    }
+  }
+
+  // ── 음성 녹음 (Web Audio API → 16kHz mono PCM WAV) ────────
+  let audioContext = null, audioStream = null, pcmChunks = [], scriptProcessor = null, isRecording = false;
+
+  function encodeWAV(chunks, sampleRate) {
+    const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+    const pcm = new Float32Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) { pcm.set(chunk, offset); offset += chunk.length; }
+    const int16 = new Int16Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) {
+      const s = Math.max(-1, Math.min(1, pcm[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const buf = new ArrayBuffer(44 + int16.byteLength);
+    const v = new DataView(buf);
+    const write = (off, str) => { for (let i = 0; i < str.length; i++) v.setUint8(off + i, str.charCodeAt(i)); };
+    write(0, 'RIFF'); v.setUint32(4, 36 + int16.byteLength, true);
+    write(8, 'WAVE'); write(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true); v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    write(36, 'data'); v.setUint32(40, int16.byteLength, true);
+    new Int16Array(buf, 44).set(int16);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
+  async function toggleRecording() {
+    if (isRecording) {
+      isRecording = false;
+      const micBtn = document.getElementById('micBtn');
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎤';
+      micBtn.disabled = true;
+      scriptProcessor.disconnect();
+      audioStream.getTracks().forEach(t => t.stop());
+      await audioContext.close();
+      const wavBlob = encodeWAV(pcmChunks, 16000);
+      const formData = new FormData();
+      formData.append('audio', wavBlob, 'recording.wav');
+      addMessage('ai', '🔄 음성 인식 중...');
+      try {
+        const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+        const data = await res.json();
+        messagesEl.lastElementChild.remove();
+        if (data.text) {
+          addMessage('user', data.text);
+          await submitText(data.text);
+        } else {
+          addMessage('ai', '음성을 인식하지 못했어요. 다시 시도해주세요.');
+        }
+      } catch (e) {
+        messagesEl.lastElementChild.remove();
+        addMessage('ai', '음성 인식 오류가 발생했습니다.');
+      }
+      inputEl.value = '';
+      micBtn.disabled = false;
+    } else {
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+        });
+        audioContext = new AudioContext({ sampleRate: 16000 });
+        const source = audioContext.createMediaStreamSource(audioStream);
+        scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        pcmChunks = [];
+        scriptProcessor.onaudioprocess = (e) => {
+          pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
+        source.connect(scriptProcessor);
+        scriptProcessor.connect(audioContext.destination);
+        isRecording = true;
+        const micBtn = document.getElementById('micBtn');
+        micBtn.classList.add('recording');
+        micBtn.textContent = '⏹';
+      } catch (e) {
+        alert('마이크 접근 권한이 필요합니다.\n시스템 설정 > 사운드 > 입력에서 내장 마이크를 선택해주세요.');
+      }
+    }
+  }
+
+  // ── TTS ──────────────────────────────────────────────────
+  async function playTTS(text) {
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+      audio.onended = () => URL.revokeObjectURL(url);
+    } catch (e) {}
+  }
+
+  // ── 번역 ──────────────────────────────────────────────────
+  let lastAiText = '';
+  let translationCache = {};
+  let isTranslationVisible = false;
+
+  async function toggleTranslation() {
+    const btn = document.getElementById('translateBtn');
+    const textEl = document.getElementById('translateText');
+
+    if (isTranslationVisible) {
+      isTranslationVisible = false;
+      btn.classList.remove('active');
+      btn.textContent = '🇰🇷 번역 보기';
+      textEl.classList.remove('visible');
+      return;
+    }
+
+    if (!lastAiText) return;
+
+    isTranslationVisible = true;
+    btn.classList.add('active');
+    btn.textContent = '🇰🇷 번역 닫기';
+    textEl.classList.add('visible');
+
+    if (translationCache[lastAiText]) {
+      textEl.textContent = translationCache[lastAiText];
+      return;
+    }
+
+    textEl.innerHTML = '<span class="translate-loading">번역 중...</span>';
+    try {
+      const res = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: lastAiText }),
+      });
+      const data = await res.json();
+      const result = data.translation || '번역에 실패했습니다.';
+      translationCache[lastAiText] = result;
+      textEl.textContent = result;
+    } catch (e) {
+      textEl.textContent = '번역에 실패했습니다.';
+    }
+  }
+
+  // ── 힌트 바 ──────────────────────────────────────────────
+  function setHint(hint) {
+    const bar = document.getElementById('hintBar');
+    const text = document.getElementById('hintText');
+    if (currentMode === 'business' && hint) {
+      text.textContent = hint;
+      bar.classList.add('visible');
+    } else {
+      bar.classList.remove('visible');
+    }
+  }
+
+  // ── 사이드바 날짜 ─────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [y, m, d] = todayStr.split('-');
+  document.getElementById('sidebarDate').textContent = `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
+
+  let isWaiting = false;
+  let sidebarItems = [];
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('msgInput');
+  const sendBtn    = document.getElementById('sendBtn');
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+  });
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+  function addMessage(role, content) {
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${role}`;
+    wrap.innerHTML = `
+      <div class="avatar">${role === 'ai' ? '🤖' : '👤'}</div>
+      <div class="bubble-wrap"><div class="bubble">${content}</div></div>`;
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+    return wrap;
+  }
+
+  function addAiMessage(data) {
+    // 번역 버튼 초기화
+    if (data.response) {
+      lastAiText = data.response;
+      isTranslationVisible = false;
+      const btn = document.getElementById('translateBtn');
+      const textEl = document.getElementById('translateText');
+      btn.classList.remove('active');
+      btn.textContent = '🇰🇷 번역 보기';
+      textEl.classList.remove('visible');
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ai';
+    wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap"></div>`;
+    const bw = wrap.querySelector('.bubble-wrap');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = data.response;
+    bw.appendChild(bubble);
+
+    // Training mode: show feedback_kr card
+    if (currentMode === 'training' && data.feedback_kr && data.evaluation && data.evaluation !== 'start') {
+      const evalClass = data.evaluation === 'correct' ? '' : data.evaluation === 'partial' ? ' partial' : ' incorrect';
+      const evalLabel = data.evaluation === 'correct' ? '✅ 정답!' : data.evaluation === 'partial' ? '🔶 부분 정답' : '❌ 다시 시도';
+      const card = document.createElement('div');
+      card.className = `training-feedback-card${evalClass}`;
+      let correctAnswerHtml = '';
+      if (data.correct_answer && data.evaluation !== 'correct') {
+        correctAnswerHtml = `<div class="training-correct-answer"><strong>정답:</strong> ${data.correct_answer}</div>`;
+      }
+      card.innerHTML = `
+        <div class="training-feedback-label">${evalLabel}</div>
+        <div>${data.feedback_kr}</div>
+        ${correctAnswerHtml}`;
+      bw.appendChild(card);
+    }
+
+    if (data.has_correction && data.corrected && currentMode !== 'training') {
+      const card = document.createElement('div');
+      card.className = 'correction-card';
+      card.innerHTML = `
+        <div class="correction-label">📝 문법 교정</div>
+        <div class="correction-original">${data.original}</div>
+        <div class="correction-fixed">→ ${data.corrected}</div>
+        ${data.explanation ? `<div class="correction-explain">${data.explanation}</div>` : ''}`;
+      bw.appendChild(card);
+    }
+    if (data.pronunciation_tip) {
+      const tip = document.createElement('div');
+      tip.className = 'tip-card';
+      tip.innerHTML = `<strong>🔊 발음 팁</strong> ${data.pronunciation_tip}`;
+      bw.appendChild(tip);
+    }
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function showTyping() {
+    const el = document.createElement('div');
+    el.className = 'msg ai'; el.id = 'typingMsg';
+    el.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap"><div class="typing"><span></span><span></span><span></span></div></div>`;
+    messagesEl.appendChild(el);
+    scrollToBottom();
+  }
+  function removeTyping() { document.getElementById('typingMsg')?.remove(); }
+
+  function addSidebarItem(userMsg, data) {
+    const sidebarBody = document.getElementById('sidebarBody');
+    sidebarBody.querySelector('.sidebar-empty')?.remove();
+    const correctionHtml = data.has_correction && data.corrected ? `
+      <div class="sidebar-corrected">
+        <span>${data.original}</span>
+        <span class="sidebar-arrow"> → </span>
+        <span style="color:#38a169">${data.corrected}</span>
+      </div>` : '';
+    const item = document.createElement('div');
+    item.className = 'sidebar-item';
+    item.innerHTML = `
+      <div class="sidebar-time">${data.timestamp.slice(11, 16)}</div>
+      <div class="sidebar-user"><strong>나:</strong> ${userMsg}</div>
+      ${correctionHtml}
+      <div class="sidebar-ai"><strong>AI:</strong> ${data.response}</div>`;
+    sidebarBody.appendChild(item);
+    sidebarBody.scrollTop = sidebarBody.scrollHeight;
+    sidebarItems.push(item);
+    document.getElementById('sidebarCount').textContent = sidebarItems.length;
+  }
+
+  async function submitText(msg) {
+    if (!msg || isWaiting) return;
+    isWaiting = true;
+    sendBtn.disabled = true;
+    document.getElementById('micBtn').disabled = true;
+    showTyping();
+    try {
+      const body = {
+        message: msg,
+        mode: currentMode,
+        scenario: currentScenario,
+        phrase_category: currentPhraseCategory ? currentPhraseCategory.category : null,
+      };
+      if (currentMode === 'training') {
+        body.day_info = trainingState.dayInfo;
+        body.sentences_done = trainingState.sentencesDone;
+        body.correct_count = trainingState.correctCount;
+        body.current_korean_prompt = trainingState.currentPrompt ? trainingState.currentPrompt.korean : '';
+      }
+      if (currentMode === 'phrase') {
+        body.phrase_data = phraseState.currentPhraseData;
+      }
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      removeTyping();
+      if (data.error) {
+        addMessage('ai', '오류가 발생했습니다. 다시 시도해주세요.');
+      } else {
+        addAiMessage(data);
+        addSidebarItem(msg, data);
+        playTTS(data.response);
+
+        if (currentMode === 'training') {
+          // Update training state
+          trainingState.sentencesDone += 1;
+          const isCorrect = data.evaluation === 'correct' || data.evaluation === 'partial';
+          if (isCorrect) trainingState.correctCount += 1;
+          updateTrainingBanner();
+
+          const progress = data.progress || { current: trainingState.sentencesDone, total: 8 };
+          document.getElementById('trainingProgressLabel').textContent = `${progress.current} / ${progress.total}`;
+
+          if (data.session_complete) {
+            trainingState.sessionComplete = true;
+            // Hide prompt card, show completion
+            updateKoreanPromptCard('', '');
+            // Add completion card in chat
+            const completeWrap = document.createElement('div');
+            completeWrap.className = 'msg ai';
+            completeWrap.innerHTML = `
+              <div class="avatar">🤖</div>
+              <div class="bubble-wrap">
+                <div class="training-complete-card">
+                  <div class="complete-emoji">🎉</div>
+                  <h3>오늘 훈련 완료!</h3>
+                  <p>Day ${trainingState.dayInfo ? trainingState.dayInfo.day : ''} 세션을 마쳤습니다.<br>
+                  ${trainingState.sentencesDone}문장 중 ${trainingState.correctCount}개 정답!</p>
+                </div>
+              </div>`;
+            messagesEl.appendChild(completeWrap);
+            scrollToBottom();
+            // Disable input
+            sendBtn.disabled = true;
+            document.getElementById('micBtn').disabled = true;
+            inputEl.disabled = true;
+            inputEl.placeholder = '오늘 훈련을 완료했습니다! 내일 다시 돌아오세요.';
+          } else {
+            // Update Korean prompt card with next sentence
+            const nextPrompt = data.next_prompt || {};
+            if (nextPrompt.korean) {
+              trainingState.currentPrompt = nextPrompt;
+              updateKoreanPromptCard(nextPrompt.korean, nextPrompt.hint);
+            }
+          }
+        } else if (currentMode === 'phrase') {
+          if (data.phrase_confirmed) {
+            // Phrase confirmed - load next phrase
+            const completeRes = await fetch('/api/phrase-complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phrase: phraseState.currentPhraseData ? phraseState.currentPhraseData.phrase : '',
+                category: phraseState.currentPhraseData ? phraseState.currentPhraseData.category : '',
+              }),
+            });
+            const completeData = await completeRes.json();
+            if (completeData.next_phrase) {
+              phraseState.currentPhraseData = completeData.next_phrase;
+              // Fetch updated progress
+              const listRes = await fetch('/api/phrase-list');
+              const listData = await listRes.json();
+              const progressNum = `${listData.completed_count + 1} / ${listData.total}`;
+              updatePhraseCard(completeData.next_phrase, progressNum);
+            } else {
+              // All phrases complete
+              phraseState.currentPhraseData = null;
+              document.getElementById('phraseCard').classList.remove('visible');
+              addMessage('ai', '🎉 모든 25개 표현을 완료했습니다! Congratulations!');
+              inputEl.disabled = true;
+              inputEl.placeholder = '모든 표현을 완료했습니다!';
+            }
+          }
+          if (data.hint) setHint(data.hint);
+        } else {
+          if (data.hint) setHint(data.hint);
+        }
+      }
+    } catch (e) {
+      removeTyping();
+      addMessage('ai', '서버 연결에 실패했습니다.');
+    }
+    if (!trainingState.sessionComplete) {
+      isWaiting = false;
+      sendBtn.disabled = false;
+      document.getElementById('micBtn').disabled = false;
+    } else {
+      isWaiting = false;
+    }
+    inputEl.focus();
+  }
+
+  async function sendMessage() {
+    const msg = inputEl.value.trim();
+    if (!msg) return;
+    if (currentMode === 'training' && trainingState.sessionComplete) return;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    addMessage('user', msg);
+    await submitText(msg);
+  }
+
+  async function loadTodayHistory() {
+    const res = await fetch('/api/today');
+    const data = await res.json();
+    if (data.conversations.length > 0) {
+      const sidebarBody = document.getElementById('sidebarBody');
+      sidebarBody.innerHTML = '';
+      data.conversations.forEach(c => {
+        const correctionHtml = c['수정 필요'] === 'O' && c['수정된 문장'] ? `
+          <div class="sidebar-corrected">
+            <span>${c['내 영어 문장']}</span>
+            <span class="sidebar-arrow"> → </span>
+            <span style="color:#38a169">${c['수정된 문장']}</span>
+          </div>` : '';
+        const item = document.createElement('div');
+        item.className = 'sidebar-item';
+        item.innerHTML = `
+          <div class="sidebar-time">${c['날짜/시간'].slice(11, 16)}</div>
+          <div class="sidebar-user"><strong>나:</strong> ${c['내 영어 문장']}</div>
+          ${correctionHtml}
+          <div class="sidebar-ai"><strong>AI:</strong> ${c['AI 응답']}</div>`;
+        sidebarBody.appendChild(item);
+        sidebarItems.push(item);
+      });
+      document.getElementById('sidebarCount').textContent = sidebarItems.length;
+    }
+  }
+
+  async function loadGreeting() {
+    try {
+      const params = new URLSearchParams({ mode: currentMode });
+      if (currentScenario) params.set('scenario', currentScenario.id);
+      const res = await fetch('/api/greeting?' + params);
+      const data = await res.json();
+
+      if (currentMode === 'training') {
+        // Initialize training state from server
+        trainingState.dayInfo = data.day_info;
+        trainingState.sentencesDone = data.sentences_done || 0;
+        trainingState.correctCount = 0;
+        trainingState.sessionComplete = false;
+        updateTrainingBanner();
+
+        // Show AI greeting
+        addAiMessage({ response: data.response, has_correction: false });
+        playTTS(data.response);
+
+        // Show first Korean prompt from next_prompt
+        const nextPrompt = data.next_prompt || {};
+        if (nextPrompt.korean) {
+          trainingState.currentPrompt = nextPrompt;
+          updateKoreanPromptCard(nextPrompt.korean, nextPrompt.hint);
+        }
+        // Update progress display
+        const progress = data.progress || { current: 0, total: 8 };
+        document.getElementById('trainingProgressLabel').textContent = `${progress.current} / ${progress.total}`;
+      } else if (currentMode === 'phrase') {
+        if (data.all_complete) {
+          addAiMessage({ response: data.response, has_correction: false });
+          playTTS(data.response);
+        } else {
+          phraseState.currentPhraseData = data.phrase_data;
+          // Fetch phrase list to calculate progress number
+          const listRes = await fetch('/api/phrase-list');
+          const listData = await listRes.json();
+          const progressNum = `${listData.completed_count + 1} / ${listData.total}`;
+          updatePhraseCard(data.phrase_data, progressNum);
+          addAiMessage({ response: data.response, has_correction: false });
+          playTTS(data.response);
+          if (data.hint) setHint(data.hint);
+        }
+      } else {
+        addAiMessage({ response: data.response, has_correction: false });
+        playTTS(data.response);
+        if (data.hint) setHint(data.hint);
+      }
+    } catch (e) {
+      addMessage('ai', 'Hello! Ready to practice English?');
+    }
+    inputEl.focus();
+  }
+
+  async function init() {
+    await loadScenarios();
+    await loadTodayHistory();
+    // 오버레이는 자동으로 표시됨 — 사용자가 모드 선택 후 시작
+  }
+
+  init();
+</script>
+</body>
+</html>

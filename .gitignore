@@ -1,0 +1,20 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+credentials.json
+# 데이터 파일 (서버 디스크에서 관리)
+conversation_history.csv
+memos.csv
+training_progress.csv
+training_sentences.csv
+phrase_progress.csv
+daily_words.json
+shown_words.json

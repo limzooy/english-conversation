@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: english-conversation
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 120
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /data
+    disk:
+      name: english-data
+      mountPath: /data
+      sizeGB: 1
