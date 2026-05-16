@@ -49,16 +49,24 @@
     }
     .nav-btn:hover { background: #5a52e0; }
 
-    /* LAYOUT */
+    /* LAYOUT — 3개 영역: words / calendar / detail */
     .container {
       max-width: 1200px;
       margin: 32px auto;
       padding: 0 24px;
       display: grid;
-      grid-template-columns: 400px 1fr;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "words  calendar"
+        "words  detail";
       gap: 24px;
       align-items: start;
     }
+
+    .words-section   { grid-area: words; }
+    .calendar-section { grid-area: calendar; }
+    .detail-section  { grid-area: detail; }
 
     /* CARD */
     .card {
@@ -69,10 +77,12 @@
     }
 
     /* CALENDAR */
+    .calendar-section .card { overflow: visible; }
     .calendar-header {
       background: linear-gradient(135deg, #6c63ff, #a78bfa);
       color: #fff;
       padding: 20px 24px;
+      border-radius: 16px 16px 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -94,9 +104,7 @@
     }
     .cal-nav-btn:hover { background: rgba(255,255,255,0.35); }
 
-    .calendar-grid {
-      padding: 16px;
-    }
+    .calendar-grid { padding: 16px; background: #fff; border-radius: 0 0 16px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
     .weekdays {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -132,31 +140,17 @@
     }
     .day:hover:not(.empty) { background: #f0eeff; }
     .day.empty { cursor: default; }
-    .day.today {
-      background: #6c63ff;
-      color: #fff;
-      font-weight: 700;
-    }
+    .day.today { background: #6c63ff; color: #fff; font-weight: 700; }
     .day.today:hover { background: #5a52e0; }
-    .day.selected {
-      background: #ede9fe;
-      color: #6c63ff;
-      font-weight: 700;
-      outline: 2px solid #6c63ff;
-    }
-    .day.today.selected {
-      background: #6c63ff;
-      color: #fff;
-      outline: 3px solid #a78bfa;
-    }
+    .day.selected { background: #ede9fe; color: #6c63ff; font-weight: 700; outline: 2px solid #6c63ff; }
+    .day.today.selected { background: #6c63ff; color: #fff; outline: 3px solid #a78bfa; }
     .day.sunday { color: #fc8181; }
     .day.today.sunday, .day.selected.sunday { color: inherit; }
     .day.saturday { color: #90cdf4; }
     .day.today.saturday, .day.selected.saturday { color: inherit; }
 
     .dot {
-      width: 5px;
-      height: 5px;
+      width: 5px; height: 5px;
       border-radius: 50%;
       background: #48d1cc;
       position: absolute;
@@ -172,11 +166,7 @@
       align-items: center;
       justify-content: space-between;
     }
-    .detail-header h3 {
-      font-size: 16px;
-      font-weight: 700;
-      color: #2d3748;
-    }
+    .detail-header h3 { font-size: 16px; font-weight: 700; color: #2d3748; }
     .detail-date-badge {
       background: #ede9fe;
       color: #6c63ff;
@@ -185,7 +175,6 @@
       padding: 4px 10px;
       border-radius: 20px;
     }
-
     .detail-body { padding: 20px 24px; }
 
     /* MEMO */
@@ -236,23 +225,14 @@
 
     /* CONVERSATIONS */
     .conv-list { display: flex; flex-direction: column; gap: 12px; }
-
     .conv-item {
       background: #f8f9ff;
       border-radius: 12px;
       padding: 14px;
       border-left: 3px solid #6c63ff;
     }
-    .conv-time {
-      font-size: 11px;
-      color: #a0aec0;
-      margin-bottom: 8px;
-    }
-    .conv-user {
-      font-size: 14px;
-      color: #2d3748;
-      margin-bottom: 4px;
-    }
+    .conv-time { font-size: 11px; color: #a0aec0; margin-bottom: 8px; }
+    .conv-user { font-size: 14px; color: #2d3748; margin-bottom: 4px; }
     .conv-user strong { color: #6c63ff; }
     .conv-correction {
       font-size: 13px;
@@ -263,11 +243,7 @@
       margin: 6px 0;
     }
     .conv-correction .arrow { color: #48bb78; font-weight: 700; }
-    .conv-explanation {
-      font-size: 12px;
-      color: #718096;
-      margin-top: 4px;
-    }
+    .conv-explanation { font-size: 12px; color: #718096; margin-top: 4px; }
     .conv-ai {
       font-size: 13px;
       color: #4a5568;
@@ -277,43 +253,34 @@
     }
     .conv-ai strong { color: #48d1cc; }
 
-    .empty-state {
-      text-align: center;
-      color: #a0aec0;
-      padding: 40px 0;
-    }
+    .empty-state { text-align: center; color: #a0aec0; padding: 40px 0; }
     .empty-state .emoji { font-size: 40px; margin-bottom: 12px; }
     .empty-state p { font-size: 14px; }
 
-    .placeholder-state {
-      text-align: center;
-      color: #a0aec0;
-      padding: 80px 32px;
-    }
-    .placeholder-state .emoji { font-size: 56px; margin-bottom: 16px; }
+    .placeholder-state { text-align: center; color: #a0aec0; padding: 40px 32px; }
+    .placeholder-state .emoji { font-size: 48px; margin-bottom: 16px; }
     .placeholder-state p { font-size: 15px; line-height: 1.6; }
 
     /* DAILY WORDS */
-    .daily-section {
-      margin-top: 20px;
-    }
     .daily-header {
       background: linear-gradient(135deg, #48d1cc, #38b2ac);
       color: #fff;
-      padding: 14px 20px;
+      padding: 16px 20px;
       border-radius: 16px 16px 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .daily-header h3 { font-size: 14px; font-weight: 700; }
+    .daily-header h3 { font-size: 15px; font-weight: 700; }
     .daily-date { font-size: 12px; opacity: 0.85; }
-    .daily-body { background: #fff; border-radius: 0 0 16px 16px; padding: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
-
-    .word-item {
-      padding: 10px 0;
-      border-bottom: 1px solid #f0f2f8;
+    .daily-body {
+      background: #fff;
+      border-radius: 0 0 16px 16px;
+      padding: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
     }
+
+    .word-item { padding: 10px 0; border-bottom: 1px solid #f0f2f8; }
     .word-item:last-child { border-bottom: none; }
     .word-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
     .word-text { font-size: 15px; font-weight: 700; color: #2d3748; }
@@ -332,6 +299,21 @@
     .expr-phrase { font-size: 15px; font-weight: 700; color: #2d3748; margin-bottom: 3px; }
     .expr-meaning { font-size: 13px; color: #dd6b20; font-weight: 600; margin-bottom: 3px; }
     .expr-example { font-size: 12px; color: #718096; font-style: italic; }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      nav { padding: 0 16px; }
+      .container {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "words"
+          "detail"
+          "calendar";
+        margin: 16px auto;
+        padding: 0 16px;
+        gap: 16px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -342,10 +324,20 @@
 </nav>
 
 <div class="container">
-  <!-- 달력 + 오늘의 단어 -->
-  <div>
-  <!-- 달력 -->
-  <div class="card">
+
+  <!-- 왼쪽: 오늘의 비즈니스 영어 -->
+  <div class="words-section">
+    <div class="daily-header">
+      <h3>📚 오늘의 비즈니스 영어</h3>
+      <span class="daily-date" id="dailyDate"></span>
+    </div>
+    <div class="daily-body" id="dailyBody">
+      <div style="text-align:center;padding:20px;color:#a0aec0;font-size:13px;">불러오는 중...</div>
+    </div>
+  </div>
+
+  <!-- 오른쪽 위: 달력 -->
+  <div class="calendar-section">
     <div class="calendar-header">
       <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
       <h2 id="monthLabel"></h2>
@@ -365,25 +357,16 @@
     </div>
   </div>
 
-  <!-- 오늘의 단어 -->
-  <div class="daily-section">
-    <div class="daily-header">
-      <h3>📚 오늘의 비즈니스 영어</h3>
-      <span class="daily-date" id="dailyDate"></span>
+  <!-- 오른쪽 아래: 대화 기록 + 메모 -->
+  <div class="detail-section">
+    <div class="card" id="detailCard">
+      <div class="placeholder-state">
+        <div class="emoji">📅</div>
+        <p>날짜를 선택하면<br>그날의 대화 기록과<br>메모를 확인할 수 있어요</p>
+      </div>
     </div>
-    <div class="daily-body" id="dailyBody">
-      <div style="text-align:center;padding:20px;color:#a0aec0;font-size:13px;">불러오는 중...</div>
-    </div>
-  </div>
   </div>
 
-  <!-- 날짜 상세 -->
-  <div class="card" id="detailCard">
-    <div class="placeholder-state">
-      <div class="emoji">📅</div>
-      <p>날짜를 선택하면<br>그날의 대화 기록과<br>메모를 확인할 수 있어요</p>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -416,7 +399,6 @@
 
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
 
     const container = document.getElementById('calDays');
     container.innerHTML = '';
@@ -526,7 +508,6 @@
     renderCalendar();
   }
 
-  // 오늘의 단어 로드
   async function loadDailyWords() {
     const [y, m, d] = todayStr.split('-');
     document.getElementById('dailyDate').textContent = `${y}.${m}.${d}`;
