@@ -386,9 +386,6 @@ BUSINESS_PHRASES = [
             {"phrase": "the bottom line is", "meaning": "결론은 / 핵심은",
              "usage": "발표나 논의의 핵심 요점을 강조할 때",
              "examples": ["The bottom line is, we need more resources.", "The bottom line is that customer satisfaction has improved."]},
-            {"phrase": "going forward", "meaning": "앞으로는 / 향후 계획으로는",
-             "usage": "다음 단계나 미래 계획을 발표할 때",
-             "examples": ["Going forward, our focus will be on digital growth.", "Going forward, we plan to expand into new markets."]},
             {"phrase": "take away", "meaning": "핵심 교훈 / 기억해야 할 포인트",
              "usage": "발표에서 청중이 가져가야 할 핵심 메시지를 정리할 때",
              "examples": ["The key takeaway from today is that consistency matters.", "What's your main takeaway from this presentation?"]},
@@ -684,8 +681,8 @@ Respond ONLY in this JSON format:
             system = SYSTEM_PROMPT
 
         messages = [{"role": "system", "content": system}]
-        # phrase 모드는 이전 표현 대화가 오염되지 않도록 최근 4개만 사용
-        history_limit = 4 if mode == "phrase" else 20
+        # phrase 모드는 이전 대화 오염 방지를 위해 history 사용 안 함
+        history_limit = 0 if mode == "phrase" else 20
         messages.extend(conversation_history[-history_limit:])
         messages.append({"role": "user", "content": user_message})
 

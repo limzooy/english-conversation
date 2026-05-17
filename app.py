@@ -637,6 +637,11 @@ def api_chat():
     try:
         used_sentences = load_correct_sentences(training_day_info["day"]) if mode == "training" and training_day_info else []
         result = ai.chat(user_message, conversation_history, mode=mode, scenario=scenario_data, phrase_category=phrase_category, phrase_data=phrase_data, day_info=training_day_info, sentences_done=training_sentences_done, used_sentences=used_sentences)
+        # Server-side phrase confirmation: if user message contains the phrase, always mark confirmed
+        if mode == "phrase" and phrase_data:
+            phrase_text = phrase_data.get("phrase", "").lower()
+            if phrase_text and phrase_text in user_message.lower():
+                result["phrase_confirmed"] = True
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
