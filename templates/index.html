@@ -303,16 +303,43 @@
     /* MOBILE */
     @media (max-width: 768px) {
       nav { padding: 0 16px; }
+      .nav-logo { font-size: 16px; }
+      .nav-btn { padding: 7px 14px; font-size: 13px; }
+
       .container {
         grid-template-columns: 1fr;
         grid-template-areas:
           "words"
           "detail"
           "calendar";
-        margin: 16px auto;
-        padding: 0 16px;
-        gap: 16px;
+        margin: 12px auto;
+        padding: 0 12px;
+        gap: 12px;
       }
+
+      .daily-header { padding: 14px 16px; border-radius: 14px 14px 0 0; }
+      .daily-header h3 { font-size: 14px; }
+      .daily-body { padding: 12px; border-radius: 0 0 14px 14px; }
+
+      .word-text { font-size: 14px; }
+      .word-meaning { font-size: 12px; }
+      .word-example { font-size: 11px; }
+
+      .calendar-header { padding: 16px 20px; border-radius: 14px 14px 0 0; }
+      .calendar-header h2 { font-size: 16px; }
+      .calendar-grid { padding: 12px; border-radius: 0 0 14px 14px; }
+      .day { font-size: 13px; }
+
+      .detail-header { padding: 16px 16px 12px; }
+      .detail-body { padding: 16px; }
+      .memo-textarea { min-height: 80px; font-size: 14px; }
+
+      .placeholder-state { padding: 28px 20px; }
+      .placeholder-state .emoji { font-size: 40px; }
+      .placeholder-state p { font-size: 14px; }
+
+      .conv-item { padding: 12px; }
+      .conv-user, .conv-ai { font-size: 13px; }
     }
   </style>
 </head>
