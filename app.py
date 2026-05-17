@@ -63,7 +63,10 @@ def init_csvs():
             csv.writer(f).writerow(PHRASE_PROGRESS_HEADERS)
 
 
-init_csvs()
+try:
+    init_csvs()
+except OSError:
+    pass  # read-only filesystem (Vercel) — Sheets DB used instead
 
 
 def get_conversations_for_date(date_str):
