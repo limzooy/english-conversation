@@ -710,6 +710,46 @@ def api_chat():
     })
 
 
+@app.route("/api/chunk-text", methods=["POST"])
+def api_chunk_text():
+    data = request.json
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    prompt = f"""You are an English pronunciation coach for Korean speakers.
+Analyze the following English text and mark where to pause for natural reading/speaking.
+
+Use these markers:
+- | for a short pause (between thought groups, at commas)
+- || for a longer pause (at sentence boundaries, major clause breaks)
+
+Then list each chunk with a brief Korean explanation of WHY to pause there (grammar reason, breath point, meaning group).
+
+Text: "{text}"
+
+Respond in this EXACT JSON format:
+{{
+    "chunked": "the text with | and || markers inserted naturally",
+    "chunks": [
+        {{"text": "chunk text (no markers)", "reason": "왜 여기서 끊는지 한국어로 짧게"}}
+    ],
+    "tip": "이 문장을 읽을 때의 전체적인 팁 (한국어, 1-2문장)"
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(response.choices[0].message.content)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/phrase-list")
 def api_phrase_list():
     """모든 표현 목록 + 완료 여부"""

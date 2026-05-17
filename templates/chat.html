@@ -424,6 +424,135 @@
     /* 구버전 mode-cards 호환 (혹시 참조되는 곳 대비) */
     .mode-cards { display: none; }
 
+    /* ── 끊어읽기 버튼 ──────────────────────────────────────── */
+    .chunk-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 6px;
+      background: #f0f7ff; border: 1.5px solid #bee3f8;
+      color: #2b6cb0; border-radius: 20px;
+      padding: 3px 10px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .chunk-btn:hover { background: #ebf8ff; border-color: #90cdf4; }
+    .chunk-btn.loading { opacity: 0.6; cursor: wait; }
+
+    /* ── 끊어읽기 모달 ─────────────────────────────────────── */
+    #chunkOverlay {
+      position: fixed; inset: 0;
+      background: rgba(15,15,30,0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 200; backdrop-filter: blur(4px);
+    }
+    #chunkOverlay.open { display: flex; }
+    #chunkModal {
+      background: #fff; border-radius: 20px;
+      width: 560px; max-width: 96vw; max-height: 88vh;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: modalIn 0.25s ease;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .chunk-modal-header {
+      padding: 18px 20px 14px; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .chunk-modal-title {
+      font-size: 16px; font-weight: 800; color: #2d3748;
+    }
+    .chunk-modal-close {
+      background: none; border: none; font-size: 20px;
+      cursor: pointer; color: #a0aec0; line-height: 1;
+    }
+    .chunk-modal-close:hover { color: #4a5568; }
+    .chunk-modal-body {
+      overflow-y: auto; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* 원문 + 마커 표시 */
+    .chunk-original {
+      background: #f8f9ff; border-radius: 12px;
+      padding: 14px 16px; font-size: 15px; line-height: 1.9;
+      color: #2d3748; letter-spacing: 0.02em;
+    }
+    .chunk-pause-short {
+      display: inline-block;
+      color: #e07b00; font-weight: 900; font-size: 18px;
+      margin: 0 2px; vertical-align: middle;
+    }
+    .chunk-pause-long {
+      display: inline-block;
+      color: #c53030; font-weight: 900; font-size: 18px;
+      margin: 0 2px; vertical-align: middle;
+    }
+
+    /* 범례 */
+    .chunk-legend {
+      display: flex; gap: 14px; flex-wrap: wrap;
+    }
+    .chunk-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #4a5568;
+    }
+    .legend-marker {
+      font-weight: 900; font-size: 15px;
+    }
+    .legend-short { color: #e07b00; }
+    .legend-long  { color: #c53030; }
+
+    /* 청크별 설명 */
+    .chunk-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .chunk-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: #fafafa; border-radius: 10px; padding: 10px 12px;
+      border-left: 3px solid #bee3f8;
+    }
+    .chunk-item-num {
+      font-size: 11px; font-weight: 700; color: #3182ce;
+      background: #ebf8ff; border-radius: 6px;
+      padding: 2px 6px; flex-shrink: 0; margin-top: 1px;
+    }
+    .chunk-item-text { font-size: 14px; font-weight: 600; color: #2d3748; margin-bottom: 2px; }
+    .chunk-item-reason { font-size: 12px; color: #718096; line-height: 1.5; }
+
+    /* 전체 팁 */
+    .chunk-tip {
+      background: #fffbeb; border: 1px solid #fde68a;
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; color: #78350f; line-height: 1.6;
+    }
+    .chunk-tip-label {
+      font-size: 11px; font-weight: 700; color: #d97706;
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* loading spinner */
+    .chunk-loading {
+      text-align: center; padding: 40px 0;
+      color: #a0aec0; font-size: 14px;
+    }
+    .chunk-spinner {
+      width: 32px; height: 32px; border: 3px solid #e2e8f0;
+      border-top-color: #6c63ff; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      #chunkModal {
+        width: 100%; max-height: 95dvh;
+        border-radius: 16px 16px 0 0;
+        align-self: flex-end;
+      }
+      #chunkOverlay { align-items: flex-end; }
+      .chunk-original { font-size: 14px; }
+      .chunk-item-text { font-size: 13px; }
+    }
+
     /* TRAINING BANNER */
     .training-banner {
       display: none;
@@ -806,6 +935,22 @@
       <div class="sidebar-empty">
         <div class="emoji">💬</div>
         <p>대화를 시작하면<br>여기에 기록이 쌓여요</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 끊어읽기 모달 -->
+<div id="chunkOverlay" onclick="closeChunkModal(event)">
+  <div id="chunkModal">
+    <div class="chunk-modal-header">
+      <div class="chunk-modal-title">🫁 끊어읽기 분석</div>
+      <button class="chunk-modal-close" onclick="closeChunkModal()">✕</button>
+    </div>
+    <div class="chunk-modal-body" id="chunkModalBody">
+      <div class="chunk-loading">
+        <div class="chunk-spinner"></div>
+        분석 중...
       </div>
     </div>
   </div>
@@ -1423,6 +1568,14 @@
       tip.innerHTML = `<strong>🔊 발음 팁</strong> ${data.pronunciation_tip}`;
       bw.appendChild(tip);
     }
+
+    // 끊어읽기 버튼
+    const chunkBtn = document.createElement('button');
+    chunkBtn.className = 'chunk-btn';
+    chunkBtn.innerHTML = '🫁 끊어읽기';
+    chunkBtn.onclick = () => showChunking(data.response, chunkBtn);
+    bw.appendChild(chunkBtn);
+
     messagesEl.appendChild(wrap);
     scrollToBottom();
   }
@@ -1672,6 +1825,68 @@
       addMessage('ai', 'Hello! Ready to practice English?');
     }
     inputEl.focus();
+  }
+
+  // ── 끊어읽기 ─────────────────────────────────────────────
+  async function showChunking(text, btn) {
+    const overlay = document.getElementById('chunkOverlay');
+    const body = document.getElementById('chunkModalBody');
+    overlay.classList.add('open');
+    body.innerHTML = '<div class="chunk-loading"><div class="chunk-spinner"></div>분석 중...</div>';
+    if (btn) { btn.classList.add('loading'); btn.textContent = '🫁 분석 중...'; }
+
+    try {
+      const res = await fetch('/api/chunk-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // chunked 문자열의 | / || 를 시각적 마커로 변환
+      const chunkedHtml = (data.chunked || text)
+        .replace(/\|\|/g, '<span class="chunk-pause-long">‖</span>')
+        .replace(/\|/g, '<span class="chunk-pause-short">|</span>');
+
+      // 청크별 설명 목록
+      const chunks = data.chunks || [];
+      const chunkListHtml = chunks.map((c, i) => `
+        <div class="chunk-item">
+          <span class="chunk-item-num">${i + 1}</span>
+          <div>
+            <div class="chunk-item-text">${c.text}</div>
+            <div class="chunk-item-reason">${c.reason}</div>
+          </div>
+        </div>`).join('');
+
+      body.innerHTML = `
+        <div class="chunk-original">${chunkedHtml}</div>
+        <div class="chunk-legend">
+          <div class="chunk-legend-item">
+            <span class="legend-marker legend-short">|</span> 짧은 휴식 (의미 그룹 경계)
+          </div>
+          <div class="chunk-legend-item">
+            <span class="legend-marker legend-long">‖</span> 긴 휴식 (문장 경계 / 깊은 호흡)
+          </div>
+        </div>
+        ${chunkListHtml ? `<div class="chunk-list">${chunkListHtml}</div>` : ''}
+        ${data.tip ? `
+        <div class="chunk-tip">
+          <div class="chunk-tip-label">💡 읽기 팁</div>
+          ${data.tip}
+        </div>` : ''}
+      `;
+    } catch (e) {
+      body.innerHTML = '<div style="padding:20px;color:#e53e3e;text-align:center">분석에 실패했습니다. 다시 시도해주세요.</div>';
+    }
+
+    if (btn) { btn.classList.remove('loading'); btn.innerHTML = '🫁 끊어읽기'; }
+  }
+
+  function closeChunkModal(e) {
+    if (e && e.target !== document.getElementById('chunkOverlay')) return;
+    document.getElementById('chunkOverlay').classList.remove('open');
   }
 
   async function init() {
