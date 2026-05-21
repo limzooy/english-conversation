@@ -1,0 +1,7 @@
+# Local data files (Google Sheets used instead on Vercel)
+*.csv
+daily_words.json
+shown_words.json
+.env
+render.yaml
+setup.sh
