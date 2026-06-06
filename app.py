@@ -552,6 +552,12 @@ def api_greeting():
     scenario_id = request.args.get("scenario", "")
 
     scenario = None
+    if mode == "speaking":
+        return jsonify({
+            "response": "Let's get started! 🎯 I'll show you a Korean sentence — type it in English. Don't worry about being perfect; natural variations are accepted!",
+            "has_correction": False,
+        })
+
     if mode == "phrase":
         next_phrase = get_next_phrase_data()
         if not next_phrase:
@@ -741,6 +747,81 @@ Respond in this EXACT JSON format:
         {{"text": "chunk text (no markers)", "reason": "왜 여기서 끊는지 한국어로 짧게"}}
     ],
     "tip": "이 문장을 읽을 때의 전체적인 팁 (한국어, 1-2문장)"
+}}"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(response.choices[0].message.content)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── 스피킹 드릴 ──────────────────────────────────────────────
+
+@app.route("/api/speaking-categories")
+def api_speaking_categories():
+    """카테고리 목록 반환"""
+    from speaking_sentences import SPEAKING_CATEGORIES, SPEAKING_SENTENCES
+    cats = []
+    for cat in SPEAKING_CATEGORIES:
+        count = len(SPEAKING_SENTENCES) if cat["id"] == "전체" else sum(1 for s in SPEAKING_SENTENCES if s["category"] == cat["id"])
+        cats.append({**cat, "count": count})
+    return jsonify(cats)
+
+
+@app.route("/api/speaking-next", methods=["POST"])
+def api_speaking_next():
+    """다음 문장 반환 (이미 본 문장 제외, 랜덤)"""
+    import random
+    from speaking_sentences import SPEAKING_SENTENCES
+    data = request.json
+    category = data.get("category", "전체")
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    pool = SPEAKING_SENTENCES if category == "전체" else [s for s in SPEAKING_SENTENCES if s["category"] == category]
+    pool = [s for s in pool if s["id"] not in exclude_ids]
+
+    if not pool:
+        return jsonify({"done": True, "remaining": 0})
+
+    sentence = random.choice(pool)
+    return jsonify({"sentence": sentence, "remaining": len(pool)})
+
+
+@app.route("/api/speaking-check", methods=["POST"])
+def api_speaking_check():
+    """사용자 답변 평가"""
+    data = request.json
+    user_answer = data.get("user_answer", "").strip()
+    correct_answer = data.get("correct_answer", "").strip()
+    korean = data.get("korean", "").strip()
+
+    if not user_answer:
+        return jsonify({"error": "No answer provided"}), 400
+
+    prompt = f"""You are an English speaking drill evaluator for Korean learners.
+
+Korean sentence: {korean}
+Reference answer: {correct_answer}
+Student's answer: {user_answer}
+
+Evaluate the student's answer. Be FLEXIBLE — accept natural variations that convey the same meaning.
+- "correct": meaning is right, expression is natural (minor grammar slips OK)
+- "partial": meaning is mostly right but expression has noticeable issues
+- "incorrect": wrong meaning or completely off
+
+Respond ONLY in this JSON format:
+{{
+    "evaluation": "correct" or "partial" or "incorrect",
+    "feedback_kr": "2-3문장 한국어 피드백. 왜 맞는지/틀린지 설명하고, partial/incorrect면 개선 방법 제시.",
+    "correct_answer": "{correct_answer}",
+    "natural_alternatives": ["자연스러운 대안 표현 1-2개 (correct인 경우도 추가 표현 제시)"]
 }}"""
 
     try:

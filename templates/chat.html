@@ -624,6 +624,33 @@
     .training-complete-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
     .training-complete-card p { font-size: 14px; opacity: 0.9; }
 
+    /* ── 스피킹 드릴 배너 ─────────────────────────────────────── */
+    .speaking-banner {
+      display: none;
+      background: linear-gradient(135deg, #2d6a4f, #40916c);
+      color: white; padding: 10px 16px; font-size: 13px;
+      align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 8px;
+    }
+    .speaking-banner.visible { display: flex; }
+    .speaking-banner-cat { font-weight: 700; font-size: 14px; }
+    .speaking-banner-progress {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+
+    /* 스피킹 드릴 피드백 카드 */
+    .speaking-feedback-card {
+      background: #f0fff4; border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; border-left: 3px solid #48bb78; line-height: 1.6; color: #276749;
+    }
+    .speaking-feedback-card.partial  { background: #fffbeb; border-left-color: #f6ad55; color: #744210; }
+    .speaking-feedback-card.incorrect{ background: #fff5f5; border-left-color: #fc8181; color: #742a2a; }
+    .speaking-feedback-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .speaking-correct-answer { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.08); font-size: 12px; color: #4a5568; }
+    .speaking-correct-answer strong { color: #38a169; }
+    .speaking-alt { margin-top: 4px; font-size: 12px; color: #805ad5; }
+
     /* 모바일 전용 모드변경 버튼 (데스크톱에서 숨김) */
     .mobile-mode-btn {
       display: none;
@@ -808,6 +835,13 @@
             <div class="mode-item-desc">심화 주제로 유창함 키우기</div>
           </div>
         </div>
+        <div class="mode-item" id="cardSpeaking" onclick="selectMode('speaking')">
+          <span class="mode-item-emoji">🎯</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">스피킹 드릴</div>
+            <div class="mode-item-desc">한→영 500문장 말하기 훈련</div>
+          </div>
+        </div>
         <div class="mode-list-group">특별</div>
         <div class="mode-item" id="cardRealEnglish" onclick="selectMode('real_english')">
           <span class="mode-item-emoji">🇺🇸</span>
@@ -833,6 +867,10 @@
           <div class="scenario-section-title">카테고리 선택</div>
           <div class="phrase-cat-grid" id="phraseCatGrid"></div>
         </div>
+        <div class="scenario-section" id="speakingCatSection">
+          <div class="scenario-section-title">카테고리 선택 (전체 또는 원하는 주제)</div>
+          <div class="scenario-grid" id="speakingCatGrid"></div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -852,6 +890,7 @@
       <button class="mode-toggle-btn" id="toggleBusiness" onclick="switchMode('business')">비즈니스</button>
       <button class="mode-toggle-btn" id="togglePhrase" onclick="switchMode('phrase')">표현 학습</button>
       <button class="mode-toggle-btn" id="toggleTraining" onclick="switchMode('training')">기초 훈련</button>
+      <button class="mode-toggle-btn" id="toggleSpeaking" onclick="switchMode('speaking')">🎯 스피킹 드릴</button>
       <button class="mode-toggle-btn" id="toggleElemLow" onclick="switchMode('elem_low')">초등 저학년</button>
       <button class="mode-toggle-btn" id="toggleElemHigh" onclick="switchMode('elem_high')">초등 고학년</button>
       <button class="mode-toggle-btn" id="toggleRealEnglish" onclick="switchMode('real_english')">🇺🇸 리얼 영어</button>
@@ -882,6 +921,12 @@
     <div class="scenario-banner-roles" id="bannerRoles"></div>
   </div>
   <button class="scenario-change-btn" onclick="showScenarioSelector()">시나리오 변경</button>
+</div>
+
+<!-- 스피킹 드릴 배너 -->
+<div class="speaking-banner" id="speakingBanner">
+  <span class="speaking-banner-cat" id="speakingBannerCat">스피킹 드릴</span>
+  <span class="speaking-banner-progress" id="speakingBannerProgress">0 완료</span>
 </div>
 
 <!-- 훈련 배너 (기초 훈련 모드) -->
@@ -984,6 +1029,17 @@
   // 표현 학습 상태
   let phraseState = { currentPhraseData: null };
 
+  // 스피킹 드릴 상태
+  let speakingState = {
+    category: "전체",
+    categoryTitle: "전체 500문장",
+    completedIds: [],
+    currentSentence: null,
+    correctCount: 0,
+    totalDone: 0,
+  };
+  let allSpeakingCategories = [];
+
   // 기초 훈련 상태
   let trainingState = {
     dayInfo: null,
@@ -995,17 +1051,20 @@
 
   // ── 모드 선택 오버레이 ────────────────────────────────────
   async function loadScenarios() {
-    const [scRes, phRes, reRes] = await Promise.all([
+    const [scRes, phRes, reRes, spRes] = await Promise.all([
       fetch('/api/business-scenarios'),
       fetch('/api/business-phrases'),
       fetch('/api/real-english-situations'),
+      fetch('/api/speaking-categories'),
     ]);
     allScenarios = await scRes.json();
     allPhraseCategories = await phRes.json();
     allRealEnglishSituations = await reRes.json();
+    allSpeakingCategories = await spRes.json();
     renderScenarioGrid();
     renderPhraseCatGrid();
     renderRealEnglishGrid();
+    renderSpeakingCatGrid();
   }
 
   function renderRealEnglishGrid() {
@@ -1085,7 +1144,34 @@
     });
   }
 
+  function renderSpeakingCatGrid() {
+    const grid = document.getElementById('speakingCatGrid');
+    grid.innerHTML = '';
+    allSpeakingCategories.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'scenario-card' + (c.id === '전체' ? ' selected' : '');
+      card.id = 'speakingcat_' + c.id;
+      card.onclick = () => selectSpeakingCategory(c.id, c.title);
+      card.innerHTML = `
+        <div class="scenario-card-header">
+          <span class="scenario-card-emoji">${c.emoji}</span>
+          <span class="scenario-card-title">${c.title}</span>
+        </div>
+        <div class="scenario-card-desc">${c.count}문장 · ${c.difficulty}</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function selectSpeakingCategory(id, title) {
+    speakingState.category = id;
+    speakingState.categoryTitle = title;
+    document.querySelectorAll('#speakingCatGrid .scenario-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('speakingcat_' + id)?.classList.add('selected');
+    updateStartBtn();
+  }
+
   const modeDescriptions = {
+    speaking: 'PDF 300문장 + 추가 200문장, 총 500개의 한국어 문장을 영어로 말하는 훈련입니다. 카테고리를 선택하거나 전체를 랜덤으로 연습하세요. AI가 유연하게 채점하고 더 자연스러운 표현을 알려드립니다.',
     free: '자유롭게 영어로 대화하며 AI가 문법과 표현을 실시간으로 교정해드립니다. 주제 제한 없이 편하게 대화해보세요.',
     business: '실전 비즈니스 상황을 롤플레이로 연습합니다. 아래에서 시나리오를 선택하세요.',
     phrase: '비즈니스에서 자주 쓰이는 표현을 배우고 직접 따라 말하는 섀도잉 방식으로 연습합니다.',
@@ -1099,7 +1185,7 @@
 
   function selectMode(mode) {
     selectedModeInModal = mode;
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking'].forEach(m => {
       const id = 'card' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       const el = document.getElementById(id);
       if (el) el.classList.toggle('selected', mode === m);
@@ -1107,6 +1193,7 @@
     document.getElementById('scenarioSection').classList.toggle('visible', mode === 'business');
     document.getElementById('realEnglishSection').classList.toggle('visible', mode === 'real_english');
     document.getElementById('phraseCatSection').classList.remove('visible');
+    document.getElementById('speakingCatSection').classList.toggle('visible', mode === 'speaking');
     const desc = document.getElementById('modeDetailDesc');
     if (desc) desc.textContent = modeDescriptions[mode] || '';
     updateStartBtn();
@@ -1148,6 +1235,9 @@
     } else if (selectedModeInModal === 'high') {
       btn.disabled = false;
       btn.textContent = '🎓 고등학교 수업 시작!';
+    } else if (selectedModeInModal === 'speaking') {
+      btn.disabled = false;
+      btn.textContent = `🎯 스피킹 드릴 시작! (${speakingState.categoryTitle})`;
     } else {
       btn.disabled = false;
       btn.textContent = '시작하기';
@@ -1173,22 +1263,28 @@
     updateScenarioBanner();
 
     // 토글 버튼 동기화
-    document.getElementById('toggleFree').classList.toggle('active', currentMode === 'free');
-    document.getElementById('toggleBusiness').classList.toggle('active', currentMode === 'business');
-    document.getElementById('togglePhrase').classList.toggle('active', currentMode === 'phrase');
-    document.getElementById('toggleTraining').classList.toggle('active', currentMode === 'training');
-    document.getElementById('toggleElemLow').classList.toggle('active', currentMode === 'elem_low');
-    document.getElementById('toggleElemHigh').classList.toggle('active', currentMode === 'elem_high');
-    document.getElementById('toggleRealEnglish').classList.toggle('active', currentMode === 'real_english');
-    document.getElementById('toggleMiddle').classList.toggle('active', currentMode === 'middle');
-    document.getElementById('toggleHigh').classList.toggle('active', currentMode === 'high');
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high'].forEach(m => {
+      const id = 'toggle' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
+      document.getElementById(id)?.classList.toggle('active', currentMode === m);
+    });
 
     // 대화 초기화 후 인사말 로드
     document.getElementById('messages').innerHTML = '';
     setHint('');
 
     // 모드별 상태 초기화
-    if (currentMode === 'training') {
+    if (currentMode === 'speaking') {
+      speakingState = {
+        category: speakingState.category,
+        categoryTitle: speakingState.categoryTitle,
+        completedIds: [],
+        currentSentence: null,
+        correctCount: 0,
+        totalDone: 0,
+      };
+      inputEl.disabled = false;
+      inputEl.placeholder = '한국어 문장을 영어로 말해보세요...';
+    } else if (currentMode === 'training') {
       trainingState = { dayInfo: null, sentencesDone: 0, correctCount: 0, currentPrompt: null, sessionComplete: false };
       inputEl.disabled = false;
       inputEl.placeholder = '영어로 번역해서 입력하세요...';
@@ -1246,6 +1342,10 @@
       phraseCard.classList.add('visible');
     } else if (currentMode === 'training') {
       trainingBanner.classList.add('visible');
+    } else if (currentMode === 'speaking') {
+      document.getElementById('speakingBanner').classList.add('visible');
+      document.getElementById('speakingBannerCat').textContent = `🎯 ${speakingState.categoryTitle}`;
+      document.getElementById('speakingBannerProgress').textContent = '0 완료';
     }
   }
 
@@ -1310,8 +1410,12 @@
     selectedModeInModal = mode;
     selectedScenarioInModal = null;
     selectedPhraseCatInModal = null;
-    // Show/hide phrase list button
     document.getElementById('phraseListBtn').style.display = (mode === 'phrase') ? 'inline-block' : 'none';
+    if (mode === 'speaking') {
+      document.getElementById('overlay').classList.remove('hidden');
+      selectMode('speaking');
+      return;
+    }
     if (mode === 'business') {
       showScenarioSelector();
       selectMode(mode);
@@ -1743,7 +1847,11 @@
     inputEl.value = '';
     inputEl.style.height = 'auto';
     addMessage('user', msg);
-    await submitText(msg);
+    if (currentMode === 'speaking') {
+      await checkSpeakingAnswer(msg);
+    } else {
+      await submitText(msg);
+    }
   }
 
   async function loadTodayHistory() {
@@ -1816,6 +1924,11 @@
           playTTS(data.response);
           if (data.hint) setHint(data.hint);
         }
+      } else if (currentMode === 'speaking') {
+        addAiMessage({ response: data.response, has_correction: false });
+        playTTS(data.response);
+        // 첫 문장 로드
+        await loadNextSpeakingQuestion();
       } else {
         addAiMessage({ response: data.response, has_correction: false });
         playTTS(data.response);
@@ -1824,6 +1937,107 @@
     } catch (e) {
       addMessage('ai', 'Hello! Ready to practice English?');
     }
+    inputEl.focus();
+  }
+
+  // ── 스피킹 드릴 ──────────────────────────────────────────
+  async function loadNextSpeakingQuestion() {
+    if (isWaiting) return;
+    try {
+      const res = await fetch('/api/speaking-next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: speakingState.category,
+          exclude_ids: speakingState.completedIds,
+        }),
+      });
+      const data = await res.json();
+      if (data.done) {
+        updateKoreanPromptCard('', '');
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+          <div class="training-complete-card">
+            <div class="complete-emoji">🎉</div>
+            <h3>카테고리 완료!</h3>
+            <p>${speakingState.totalDone}문장 중 ${speakingState.correctCount}개 정답!<br>모든 문장을 완료했습니다.</p>
+          </div></div>`;
+        messagesEl.appendChild(wrap);
+        scrollToBottom();
+        inputEl.disabled = true;
+        inputEl.placeholder = '카테고리의 모든 문장을 완료했습니다!';
+        return;
+      }
+      speakingState.currentSentence = data.sentence;
+      updateKoreanPromptCard(data.sentence.korean, `남은 문장: ${data.remaining}개`);
+    } catch (e) {
+      addMessage('ai', '문장을 불러오지 못했습니다. 새로고침해주세요.');
+    }
+  }
+
+  async function checkSpeakingAnswer(userAnswer) {
+    if (!speakingState.currentSentence || isWaiting) return;
+    isWaiting = true;
+    sendBtn.disabled = true;
+    document.getElementById('micBtn').disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/speaking-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_answer: userAnswer,
+          correct_answer: speakingState.currentSentence.english,
+          korean: speakingState.currentSentence.korean,
+        }),
+      });
+      const data = await res.json();
+      removeTyping();
+
+      if (data.error) { addMessage('ai', '평가 중 오류가 발생했습니다.'); }
+      else {
+        speakingState.totalDone += 1;
+        const isCorrect = data.evaluation === 'correct';
+        const isPartial = data.evaluation === 'partial';
+        if (isCorrect) speakingState.correctCount += 1;
+        speakingState.completedIds.push(speakingState.currentSentence.id);
+
+        // 배너 업데이트
+        document.getElementById('speakingBannerProgress').textContent =
+          `✅ ${speakingState.correctCount} / ${speakingState.totalDone} 완료`;
+
+        // 피드백 카드 렌더
+        const evalClass = isCorrect ? '' : isPartial ? ' partial' : ' incorrect';
+        const evalLabel = isCorrect ? '✅ 정답!' : isPartial ? '🔶 거의 다 왔어요' : '❌ 다시 확인해요';
+        const altHtml = data.natural_alternatives?.length
+          ? `<div class="speaking-alt">💡 다른 표현: ${data.natural_alternatives.join(' / ')}</div>` : '';
+        const answerHtml = !isCorrect
+          ? `<div class="speaking-correct-answer"><strong>정답 예시:</strong> ${data.correct_answer}</div>` : '';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+          <div class="speaking-feedback-card${evalClass}">
+            <div class="speaking-feedback-label">${evalLabel}</div>
+            <div>${data.feedback_kr}</div>
+            ${answerHtml}${altHtml}
+          </div></div>`;
+        messagesEl.appendChild(wrap);
+        scrollToBottom();
+        playTTS(data.correct_answer);
+
+        // 다음 문장
+        await loadNextSpeakingQuestion();
+      }
+    } catch (e) {
+      removeTyping();
+      addMessage('ai', '서버 연결에 실패했습니다.');
+    }
+    isWaiting = false;
+    sendBtn.disabled = false;
+    document.getElementById('micBtn').disabled = false;
     inputEl.focus();
   }
 
