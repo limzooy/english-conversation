@@ -14,10 +14,7 @@ from openai import OpenAI
 load_dotenv()
 
 app = Flask(__name__)
-secret_key = os.environ.get("SECRET_KEY")
-if not secret_key:
-    raise RuntimeError("SECRET_KEY environment variable must be set")
-app.secret_key = secret_key
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # Google Sheets DB (SPREADSHEET_ID 환경변수가 있을 때만 활성화)
 _db = None
