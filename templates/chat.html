@@ -1844,6 +1844,7 @@
     const msg = inputEl.value.trim();
     if (!msg) return;
     if (currentMode === 'training' && trainingState.sessionComplete) return;
+    if (currentMode === 'speaking' && speakingState.currentSentence === null) return;
     inputEl.value = '';
     inputEl.style.height = 'auto';
     addMessage('user', msg);
@@ -1942,7 +1943,6 @@
 
   // ── 스피킹 드릴 ──────────────────────────────────────────
   async function loadNextSpeakingQuestion() {
-    if (isWaiting) return;
     try {
       const res = await fetch('/api/speaking-next', {
         method: 'POST',
@@ -1954,6 +1954,7 @@
       });
       const data = await res.json();
       if (data.done) {
+        speakingState.currentSentence = null;   // 재답변 방지
         updateKoreanPromptCard('', '');
         const wrap = document.createElement('div');
         wrap.className = 'msg ai';
@@ -1966,6 +1967,8 @@
         messagesEl.appendChild(wrap);
         scrollToBottom();
         inputEl.disabled = true;
+        sendBtn.disabled = true;
+        document.getElementById('micBtn').disabled = true;
         inputEl.placeholder = '카테고리의 모든 문장을 완료했습니다!';
         return;
       }
@@ -2036,8 +2039,11 @@
       addMessage('ai', '서버 연결에 실패했습니다.');
     }
     isWaiting = false;
-    sendBtn.disabled = false;
-    document.getElementById('micBtn').disabled = false;
+    // 완료 상태이면 버튼을 다시 켜지 않음
+    if (speakingState.currentSentence !== null) {
+      sendBtn.disabled = false;
+      document.getElementById('micBtn').disabled = false;
+    }
     inputEl.focus();
   }
 
