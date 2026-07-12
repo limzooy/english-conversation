@@ -865,6 +865,128 @@ def api_opic_complete():
     })
 
 
+# ── 복습 시스템 (간격 반복) ───────────────────────────────────
+
+REVIEW_INTERVALS = (1, 3, 7, 21)  # 에빙하우스 간격: 완료 후 1, 3, 7, 21일(커리큘럼 Day 기준)
+
+
+def _load_json_store(key, default):
+    """Sheets 캐시 우선, 로컬 JSON 파일 폴백"""
+    db = get_db()
+    if db:
+        try:
+            raw = db.get_cache(key)
+            if raw:
+                return json.loads(raw)
+        except Exception as e:
+            app.logger.error(f"{key} read failed: {e}")
+        return default
+    path = os.path.join(BASE_DIR, f"{key}.json")
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return default
+
+
+def _save_json_store(key, data):
+    db = get_db()
+    if db:
+        try:
+            db.set_cache(key, json.dumps(data, ensure_ascii=False))
+            return
+        except Exception as e:
+            app.logger.error(f"{key} save failed: {e}")
+    try:
+        with open(os.path.join(BASE_DIR, f"{key}.json"), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+@app.route("/api/review-today")
+def api_review_today():
+    """오늘의 복습 큐: 오픽 단어(간격 반복) + 최근 교정 문장 + 드릴 오답"""
+    from opic_curriculum import OPIC_CURRICULUM
+    items = []
+
+    # 1) 오픽 단어 — 완료한 Day 중 1/3/7/21일 전 것 재출제
+    progress = get_opic_progress()
+    current_day = progress["day"]
+    for d in progress["completed_days"]:
+        if (current_day - d) in REVIEW_INTERVALS and 1 <= d <= len(OPIC_CURRICULUM):
+            for v in OPIC_CURRICULUM[d - 1]["vocab"]:
+                items.append({
+                    "type": "vocab", "day": d,
+                    "word": v["word"], "meaning": v["meaning"], "example": v["example"],
+                })
+
+    # 2) 최근 7일 회화 교정 문장 (중복 제거, 최대 5개)
+    corrections, seen = [], set()
+    for i in range(7):
+        date_str = (datetime.date.today() - datetime.timedelta(days=i)).isoformat()
+        try:
+            rows = get_conversations_for_date(date_str)
+        except Exception:
+            rows = []
+        for row in rows:
+            orig = row.get("내 영어 문장", "")
+            if row.get("수정 필요") == "O" and row.get("수정된 문장") and orig and orig not in seen:
+                seen.add(orig)
+                corrections.append({
+                    "type": "correction",
+                    "original": orig,
+                    "corrected": row["수정된 문장"],
+                    "explanation": row.get("수정 설명", ""),
+                })
+        if len(corrections) >= 5:
+            break
+    items.extend(corrections[:5])
+
+    # 3) 스피킹 드릴 오답 (최대 5개)
+    mistakes = _load_json_store("drill_mistakes", [])
+    for m in mistakes[:5]:
+        items.append({"type": "drill", "id": m["id"], "korean": m["korean"], "english": m["english"]})
+
+    counts = {
+        "vocab": sum(1 for i in items if i["type"] == "vocab"),
+        "correction": sum(1 for i in items if i["type"] == "correction"),
+        "drill": sum(1 for i in items if i["type"] == "drill"),
+    }
+    return jsonify({"items": items, "counts": counts, "total": len(items)})
+
+
+@app.route("/api/drill-mistake", methods=["POST"])
+def api_drill_mistake():
+    """스피킹 드릴 오답 저장 (복습용)"""
+    data = request.json
+    s = data.get("sentence")
+    if not s or "id" not in s:
+        return jsonify({"error": "No sentence"}), 400
+    mistakes = _load_json_store("drill_mistakes", [])
+    for m in mistakes:
+        if m["id"] == s["id"]:
+            m["count"] = m.get("count", 1) + 1
+            break
+    else:
+        mistakes.append({"id": s["id"], "korean": s["korean"], "english": s["english"], "count": 1})
+    _save_json_store("drill_mistakes", mistakes[:100])
+    return jsonify({"ok": True})
+
+
+@app.route("/api/review-result", methods=["POST"])
+def api_review_result():
+    """복습 결과 반영 — 드릴 오답을 맞히면 오답 목록에서 제거"""
+    data = request.json
+    if data.get("type") == "drill" and data.get("correct") and data.get("id") is not None:
+        mistakes = _load_json_store("drill_mistakes", [])
+        mistakes = [m for m in mistakes if m["id"] != data["id"]]
+        _save_json_store("drill_mistakes", mistakes)
+    return jsonify({"ok": True})
+
+
 # ── 스피킹 드릴 ──────────────────────────────────────────────
 
 @app.route("/api/speaking-categories")

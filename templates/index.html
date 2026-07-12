@@ -300,6 +300,27 @@
     .expr-meaning { font-size: 13px; color: #dd6b20; font-weight: 600; margin-bottom: 3px; }
     .expr-example { font-size: 12px; color: #718096; font-style: italic; }
 
+    /* REVIEW CARD */
+    .review-card { margin-bottom: 16px; }
+    .review-card-inner {
+      background: linear-gradient(135deg, #c05621, #ed8936);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .review-card-title { color: #fff; font-size: 15px; font-weight: 800; margin-bottom: 2px; }
+    .review-card-desc { color: rgba(255,255,255,0.9); font-size: 12px; }
+    .review-card-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.5);
+      color: #fff; text-decoration: none;
+      padding: 8px 16px; border-radius: 20px;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .review-card-btn:hover { background: rgba(255,255,255,0.35); }
+
     /* OPIC CURRICULUM CARD */
     .opic-card { margin-bottom: 24px; }
     .opic-header {
@@ -427,6 +448,17 @@
 
   <!-- 왼쪽: 오늘의 학습 -->
   <div class="words-section">
+
+    <!-- 오늘의 복습 카드 -->
+    <div class="review-card" id="reviewCard" style="display:none;">
+      <div class="review-card-inner">
+        <div class="review-card-text">
+          <div class="review-card-title">🔁 오늘의 복습</div>
+          <div class="review-card-desc" id="reviewCardDesc"></div>
+        </div>
+        <a href="/chat?mode=review" class="review-card-btn">시작 →</a>
+      </div>
+    </div>
 
     <!-- 오픽 90일 커리큘럼 카드 -->
     <div class="opic-card" id="opicCard" style="display:none;">
@@ -696,9 +728,26 @@
     }
   }
 
+  async function loadReviewToday() {
+    try {
+      const res = await fetch('/api/review-today');
+      const data = await res.json();
+      if (!data.total) return;  // 복습할 것 없으면 카드 숨김 유지
+      const c = data.counts;
+      const parts = [];
+      if (c.vocab) parts.push(`단어 ${c.vocab}`);
+      if (c.correction) parts.push(`교정 문장 ${c.correction}`);
+      if (c.drill) parts.push(`드릴 오답 ${c.drill}`);
+      document.getElementById('reviewCardDesc').textContent =
+        `${data.total}개 대기 중 — ${parts.join(' · ')}`;
+      document.getElementById('reviewCard').style.display = 'block';
+    } catch (e) {}
+  }
+
   loadActiveDates();
   loadDailyWords();
   loadOpicToday();
+  loadReviewToday();
 </script>
 </body>
 </html>

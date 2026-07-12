@@ -637,6 +637,22 @@
     .training-complete-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
     .training-complete-card p { font-size: 14px; opacity: 0.9; }
 
+    /* ── 복습 배너 ─────────────────────────────────────────── */
+    .review-banner {
+      display: none;
+      background: linear-gradient(135deg, #c05621, #ed8936);
+      color: white; padding: 10px 16px; font-size: 13px;
+      align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 8px;
+    }
+    .review-banner.visible { display: flex; }
+    .review-banner-title { font-weight: 800; font-size: 14px; }
+    .review-banner-progress {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+
     /* ── 오픽 배너 ─────────────────────────────────────────── */
     .opic-banner {
       display: none;
@@ -881,6 +897,13 @@
             <div class="mode-item-desc">심화 주제로 유창함 키우기</div>
           </div>
         </div>
+        <div class="mode-item" id="cardReview" onclick="selectMode('review')">
+          <span class="mode-item-emoji">🔁</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">오늘의 복습</div>
+            <div class="mode-item-desc">배운 단어·교정 문장·오답 재점검</div>
+          </div>
+        </div>
         <div class="mode-item" id="cardOpic" onclick="selectMode('opic')">
           <span class="mode-item-emoji">🎯</span>
           <div class="mode-item-text">
@@ -943,6 +966,7 @@
       <button class="mode-toggle-btn" id="toggleBusiness" onclick="switchMode('business')">비즈니스</button>
       <button class="mode-toggle-btn" id="togglePhrase" onclick="switchMode('phrase')">표현 학습</button>
       <button class="mode-toggle-btn" id="toggleTraining" onclick="switchMode('training')">기초 훈련</button>
+      <button class="mode-toggle-btn" id="toggleReview" onclick="switchMode('review')">🔁 복습</button>
       <button class="mode-toggle-btn" id="toggleOpic" onclick="switchMode('opic')">🎯 오픽 90일</button>
       <button class="mode-toggle-btn" id="toggleSpeaking" onclick="switchMode('speaking')">스피킹 드릴</button>
       <button class="mode-toggle-btn" id="toggleElemLow" onclick="switchMode('elem_low')">초등 저학년</button>
@@ -975,6 +999,12 @@
     <div class="scenario-banner-roles" id="bannerRoles"></div>
   </div>
   <button class="scenario-change-btn" onclick="showScenarioSelector()">시나리오 변경</button>
+</div>
+
+<!-- 복습 배너 -->
+<div class="review-banner" id="reviewBanner">
+  <span class="review-banner-title">🔁 오늘의 복습</span>
+  <span class="review-banner-progress" id="reviewBannerProgress">0 / 0</span>
 </div>
 
 <!-- 오픽 배너 -->
@@ -1095,6 +1125,9 @@
 
   // 오픽 커리큘럼 상태
   let opicState = { day: null, opicDay: null };
+
+  // 복습 상태
+  let reviewState = { queue: [], index: 0, correct: 0 };
 
   // 스피킹 드릴 상태
   let speakingState = {
@@ -1238,6 +1271,7 @@
   }
 
   const modeDescriptions = {
+    review: '배운 것을 잊지 않도록 간격 반복(1·3·7·21일 주기)으로 복습합니다. 오픽 커리큘럼 단어 퀴즈, 회화에서 교정받은 문장 다시 말하기, 스피킹 드릴 오답 재도전으로 구성됩니다.',
     opic: '오픽 IM3~IH 목표 90일 커리큘럼입니다. 매일 실전 질문 1개 + 단어 5개 + 핵심 표현 2개를 학습하고, AI 면접관 Ava와 실전처럼 연습하세요. Phase 1(기초 묘사) → Phase 2(과거/비교/돌발) → Phase 3(롤플레이/의견/모의고사)로 성장합니다.',
     speaking: 'PDF 300문장 + 추가 200문장, 총 500개의 한국어 문장을 영어로 말하는 훈련입니다. 카테고리를 선택하거나 전체를 랜덤으로 연습하세요. AI가 유연하게 채점하고 더 자연스러운 표현을 알려드립니다.',
     free: '자유롭게 영어로 대화하며 AI가 문법과 표현을 실시간으로 교정해드립니다. 주제 제한 없이 편하게 대화해보세요.',
@@ -1253,7 +1287,7 @@
 
   function selectMode(mode) {
     selectedModeInModal = mode;
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review'].forEach(m => {
       const id = 'card' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       const el = document.getElementById(id);
       if (el) el.classList.toggle('selected', mode === m);
@@ -1309,6 +1343,9 @@
     } else if (selectedModeInModal === 'opic') {
       btn.disabled = false;
       btn.textContent = '🎯 오늘의 오픽 수업 시작!';
+    } else if (selectedModeInModal === 'review') {
+      btn.disabled = false;
+      btn.textContent = '🔁 오늘의 복습 시작!';
     } else {
       btn.disabled = false;
       btn.textContent = '시작하기';
@@ -1334,7 +1371,7 @@
     updateScenarioBanner();
 
     // 토글 버튼 동기화
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review'].forEach(m => {
       const id = 'toggle' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       document.getElementById(id)?.classList.toggle('active', currentMode === m);
     });
@@ -1344,7 +1381,11 @@
     setHint('');
 
     // 모드별 상태 초기화
-    if (currentMode === 'opic') {
+    if (currentMode === 'review') {
+      reviewState = { queue: [], index: 0, correct: 0 };
+      inputEl.disabled = false;
+      inputEl.placeholder = '복습 문제에 답해보세요...';
+    } else if (currentMode === 'opic') {
       opicState = { day: null, opicDay: null };
       inputEl.disabled = false;
       inputEl.placeholder = 'Ava의 질문에 영어로 답해보세요...';
@@ -1403,6 +1444,7 @@
     koreanPromptCard.classList.remove('visible');
     document.getElementById('opicBanner').classList.remove('visible');
     document.getElementById('speakingBanner').classList.remove('visible');
+    document.getElementById('reviewBanner').classList.remove('visible');
 
     if (currentMode === 'real_english' && currentScenario) {
       banner.classList.add('visible');
@@ -1425,6 +1467,8 @@
       document.getElementById('speakingBannerProgress').textContent = '0 완료';
     } else if (currentMode === 'opic') {
       document.getElementById('opicBanner').classList.add('visible');
+    } else if (currentMode === 'review') {
+      document.getElementById('reviewBanner').classList.add('visible');
     }
   }
 
@@ -1528,6 +1572,11 @@
     }
     if (mode === 'opic') {
       selectedModeInModal = 'opic';
+      startChat();
+      return;
+    }
+    if (mode === 'review') {
+      selectedModeInModal = 'review';
       startChat();
       return;
     }
@@ -1989,6 +2038,8 @@
     addMessage('user', msg);
     if (currentMode === 'speaking') {
       await checkSpeakingAnswer(msg);
+    } else if (currentMode === 'review') {
+      await checkReviewAnswer(msg);
     } else {
       await submitText(msg);
     }
@@ -2022,6 +2073,11 @@
   }
 
   async function loadGreeting() {
+    if (currentMode === 'review') {
+      await loadReviewSession();
+      inputEl.focus();
+      return;
+    }
     try {
       const params = new URLSearchParams({ mode: currentMode });
       if (currentScenario) params.set('scenario', currentScenario.id);
@@ -2156,6 +2212,15 @@
         if (isCorrect) speakingState.correctCount += 1;
         speakingState.completedIds.push(speakingState.currentSentence.id);
 
+        // 오답은 복습용으로 저장
+        if (data.evaluation === 'incorrect') {
+          fetch('/api/drill-mistake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentence: speakingState.currentSentence }),
+          }).catch(() => {});
+        }
+
         // 배너 업데이트
         document.getElementById('speakingBannerProgress').textContent =
           `✅ ${speakingState.correctCount} / ${speakingState.totalDone} 완료`;
@@ -2193,6 +2258,161 @@
       sendBtn.disabled = false;
       document.getElementById('micBtn').disabled = false;
     }
+    inputEl.focus();
+  }
+
+  // ── 복습 모드 ─────────────────────────────────────────────
+  async function loadReviewSession() {
+    try {
+      const res = await fetch('/api/review-today');
+      const data = await res.json();
+      reviewState = { queue: data.items, index: 0, correct: 0 };
+      document.getElementById('reviewBannerProgress').textContent = `0 / ${data.total}`;
+
+      if (!data.items.length) {
+        addAiMessage({ response: '오늘 복습할 항목이 없어요! 🎉 오픽 커리큘럼을 진행하고 스피킹 드릴을 연습하면 복습 항목이 자동으로 쌓입니다.', has_correction: false });
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        document.getElementById('micBtn').disabled = true;
+        inputEl.placeholder = '오늘은 복습할 항목이 없습니다';
+        return;
+      }
+      const c = data.counts;
+      const parts = [];
+      if (c.vocab) parts.push(`오픽 단어 ${c.vocab}개`);
+      if (c.correction) parts.push(`교정 문장 ${c.correction}개`);
+      if (c.drill) parts.push(`드릴 오답 ${c.drill}개`);
+      addAiMessage({ response: `오늘의 복습 ${data.total}개! (${parts.join(', ')}) 잊기 전에 다시 꺼내볼게요 💪`, has_correction: false });
+      showReviewItem();
+    } catch (e) {
+      addMessage('ai', '복습 항목을 불러오지 못했습니다. 새로고침해주세요.');
+    }
+  }
+
+  function showReviewItem() {
+    const item = reviewState.queue[reviewState.index];
+    if (!item) return;
+    document.getElementById('reviewBannerProgress').textContent =
+      `${reviewState.index} / ${reviewState.queue.length}`;
+    if (item.type === 'vocab') {
+      const wordCount = item.word.split(' ').length;
+      updateKoreanPromptCard(
+        `📖 뜻: "${item.meaning}" — 영어 단어는?`,
+        `Day ${item.day} 단어 · '${item.word[0]}'로 시작, ${wordCount}단어`);
+    } else if (item.type === 'correction') {
+      updateKoreanPromptCard(
+        `✏️ 예전에 이렇게 말했어요: "${item.original}" — 올바른 문장으로 고쳐 말해보세요`,
+        '회화에서 교정받았던 문장이에요');
+    } else if (item.type === 'drill') {
+      updateKoreanPromptCard(
+        `🔄 ${item.korean}`,
+        '스피킹 드릴에서 틀렸던 문장 — 영어로 다시 도전!');
+    }
+  }
+
+  function renderReviewFeedback(ok, label, feedback, answer, extra) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ai';
+    wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+      <div class="speaking-feedback-card${ok ? '' : ' incorrect'}">
+        <div class="speaking-feedback-label">${label}</div>
+        <div>${feedback}</div>
+        ${answer ? `<div class="speaking-correct-answer"><strong>정답:</strong> ${answer}</div>` : ''}
+        ${extra ? `<div class="speaking-alt">${extra}</div>` : ''}
+      </div></div>`;
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  async function advanceReview() {
+    reviewState.index += 1;
+    if (reviewState.index >= reviewState.queue.length) {
+      document.getElementById('reviewBannerProgress').textContent =
+        `${reviewState.queue.length} / ${reviewState.queue.length}`;
+      updateKoreanPromptCard('', '');
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ai';
+      wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+        <div class="training-complete-card">
+          <div class="complete-emoji">🎉</div>
+          <h3>오늘의 복습 완료!</h3>
+          <p>${reviewState.queue.length}개 중 ${reviewState.correct}개 정답!<br>복습이 기억을 만듭니다. 내일 또 만나요 💪</p>
+        </div></div>`;
+      messagesEl.appendChild(wrap);
+      scrollToBottom();
+      inputEl.disabled = true;
+      sendBtn.disabled = true;
+      document.getElementById('micBtn').disabled = true;
+      inputEl.placeholder = '오늘의 복습을 완료했습니다!';
+      return;
+    }
+    showReviewItem();
+  }
+
+  async function checkReviewAnswer(msg) {
+    const item = reviewState.queue[reviewState.index];
+    if (!item || isWaiting) return;
+
+    // 단어 퀴즈: 클라이언트에서 즉시 채점
+    if (item.type === 'vocab') {
+      const ok = msg.toLowerCase().replace(/[^a-z ]/g, '').includes(item.word.toLowerCase());
+      if (ok) reviewState.correct += 1;
+      renderReviewFeedback(ok,
+        ok ? '✅ 정답!' : '❌ 아쉬워요',
+        ok ? `맞아요! "${item.word}" — ${item.meaning}` : `정답은 "${item.word}" (${item.meaning}) 이에요.`,
+        ok ? '' : item.word,
+        `예문: ${item.example}`);
+      if (ok) playTTS(item.example);
+      await advanceReview();
+      return;
+    }
+
+    // 문장형(교정/드릴): AI 채점
+    isWaiting = true;
+    sendBtn.disabled = true;
+    document.getElementById('micBtn').disabled = true;
+    showTyping();
+    try {
+      const body = item.type === 'drill'
+        ? { user_answer: msg, correct_answer: item.english, korean: item.korean }
+        : { user_answer: msg, correct_answer: item.corrected, korean: '(교정 문장 복습)' };
+      const res = await fetch('/api/speaking-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      removeTyping();
+      if (data.error) {
+        addMessage('ai', '채점 중 오류가 발생했습니다.');
+      } else {
+        const ok = data.evaluation === 'correct';
+        if (ok) reviewState.correct += 1;
+        renderReviewFeedback(ok,
+          ok ? '✅ 정답!' : (data.evaluation === 'partial' ? '🔶 거의 다 왔어요' : '❌ 다시 확인해요'),
+          data.feedback_kr || '',
+          ok ? '' : data.correct_answer,
+          data.natural_alternatives?.length ? `💡 다른 표현: ${data.natural_alternatives.join(' / ')}` : '');
+        playTTS(data.correct_answer);
+        // 드릴 오답을 맞히면 오답 목록에서 제거
+        if (item.type === 'drill' && ok) {
+          fetch('/api/review-result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'drill', id: item.id, correct: true }),
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      removeTyping();
+      addMessage('ai', '서버 연결에 실패했습니다.');
+    }
+    isWaiting = false;
+    if (reviewState.index < reviewState.queue.length) {
+      sendBtn.disabled = false;
+      document.getElementById('micBtn').disabled = false;
+    }
+    await advanceReview();
     inputEl.focus();
   }
 
@@ -2263,9 +2483,9 @@
     await loadTodayHistory();
     // URL에 mode 파라미터가 있으면 해당 모드 바로 시작 (예: /chat?mode=opic)
     const urlMode = new URLSearchParams(location.search).get('mode');
-    if (urlMode === 'opic') {
+    if (urlMode === 'opic' || urlMode === 'review') {
       document.getElementById('overlay').classList.add('hidden');
-      switchMode('opic');
+      switchMode(urlMode);
     }
     // 그 외에는 오버레이에서 사용자가 모드 선택 후 시작
   }
