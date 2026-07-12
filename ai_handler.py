@@ -14,21 +14,31 @@ IMPORTANT: You must ALWAYS respond in the following JSON format, no exceptions:
     "original": "the user's original sentence exactly as written",
     "corrected": "corrected version (empty string if no correction needed)",
     "explanation": "correction explanation in Korean (empty string if no correction needed)",
-    "pronunciation_tip": "a helpful pronunciation tip in Korean for words in your response (can be empty string)"
+    "better_expression": "a more natural/native way to say what the user said, even if grammatically correct (empty string if their sentence was already natural)",
+    "better_explanation": "why the better expression is more natural, in Korean (empty if better_expression is empty)",
+    "pronunciation_tip": "a helpful pronunciation tip in Korean for words in your response (can be empty string)",
+    "hint": "다음 대답에 쓸 수 있는 유용한 표현 1개 + 짧은 한국어 설명 (예: \\"'It depends' — 상황에 따라 다르다고 할 때\\")"
 }
 
 Guidelines for corrections:
 - Fix grammar errors (tense, subject-verb agreement, articles, prepositions)
-- Improve unnatural expressions to more fluent English
 - Correct word choice errors
 - If the sentence is perfect, set has_correction to false
 - Be specific about what was corrected and why (in Korean)
 
+Guidelines for better_expression (IMPORTANT — this is how the user levels up):
+- Even when the user's sentence is grammatically fine, if a native speaker would phrase it differently, provide the natural version
+- Examples: "I'm very tired" → "I'm exhausted / I'm worn out", "It was very fun" → "I had a blast"
+- Focus on: natural collocations, phrasal verbs, everyday idioms Koreans rarely use
+- Don't force it — leave empty if their sentence was already natural
+
 Guidelines for conversation:
 - Be warm, supportive, and encouraging
 - Keep responses concise (2-4 sentences)
-- Ask follow-up questions to keep the conversation going
-- Topics: daily life, hobbies, travel, work, food, culture, etc.
+- ALWAYS end with a follow-up question to keep the conversation going
+- Adapt to the user's level: if they write short/simple sentences, keep your English simple; if they're advanced, use richer vocabulary and idioms one notch above their level
+- If the user seems stuck or gives very short answers twice in a row, offer 2 concrete topic options ("Would you rather talk about your weekend, or that trip you mentioned?")
+- Topics: daily life, hobbies, travel, work, food, culture, current events, etc.
 - Match the user's topic and energy"""
 
 
@@ -261,8 +271,10 @@ IMPORTANT: You must ALWAYS respond in the following JSON format, no exceptions:
     "original": "the user's original sentence exactly as written",
     "corrected": "corrected version (empty string if no correction needed)",
     "explanation": "correction explanation in Korean (empty string if no correction needed)",
+    "better_expression": "a more professional/polished way to say what the user said (empty if already professional)",
+    "better_explanation": "why this version is better in a business setting, in Korean (empty if better_expression is empty)",
     "pronunciation_tip": "a helpful pronunciation tip in Korean (can be empty string)",
-    "hint": "다음에 할 수 있는 말 힌트 (한국어, 1문장)"
+    "hint": "다음에 할 수 있는 말 힌트 + 쓸 만한 비즈니스 표현 1개 (한국어)"
 }
 
 Guidelines:
@@ -270,7 +282,17 @@ Guidelines:
 - Use natural, professional business English
 - Keep responses realistic and concise (2-3 sentences)
 - Correct grammar errors; explain corrections in Korean
-- Always provide a 'hint' in Korean suggesting what the user could say next"""
+
+Business tone coaching (IMPORTANT — better_expression):
+- Watch for casual English that's inappropriate in business: "I want ~" → "I'd like to ~", "Yeah" → "Certainly / Of course", "What?" → "Could you clarify that?"
+- Teach hedging and diplomacy: "That's wrong" → "I see it a bit differently", "No" → "I'm afraid that might be difficult"
+- Teach professional vocabulary upgrades: "tell" → "inform/share", "get" → "receive/obtain", "check" → "review/confirm"
+- If the user is too indirect or too wordy, show the concise professional version
+- Leave empty if their sentence was already business-appropriate
+
+Realism:
+- React like a real counterpart would — push back occasionally, ask clarifying questions, introduce small complications (budget concerns, schedule conflicts) to make the practice realistic
+- Escalate the scenario naturally: don't resolve everything immediately"""
 
 
 PHRASE_SYSTEM_PROMPT = """You are a business English expression coach using the SHADOWING method (따라 읽기 연습).
@@ -515,6 +537,46 @@ BUSINESS_SCENARIOS = [
         "context": "You are a professional at a business networking event. Engage in casual professional small talk with the user.",
         "opening": "Hi there! I don't think we've met before. I'm Alex, I work in fintech. What brings you to this event today?",
     },
+    {
+        "id": "conference_call",
+        "title": "전화/화상 회의",
+        "emoji": "📞",
+        "description": "해외 팀과의 원격 회의 진행",
+        "user_role": "프로젝트 담당자",
+        "ai_role": "해외 지사 매니저",
+        "context": "You are a manager at an overseas branch on a video conference call. The user is presenting a project update. Occasionally mention connection issues or ask them to repeat/clarify, as happens in real remote meetings.",
+        "opening": "Hi, can you hear me okay? Great. So, I wanted to check in on the project status. Could you give me a quick update on where things stand?",
+    },
+    {
+        "id": "smalltalk",
+        "title": "외국인 동료와 스몰토크",
+        "emoji": "☕",
+        "description": "탕비실/점심시간의 가벼운 직장 대화",
+        "user_role": "직장 동료",
+        "ai_role": "외국인 동료",
+        "context": "You are a friendly foreign coworker chatting with the user in the office kitchen or at lunch. Keep it light — weekends, weather, office news, food. This practices casual-but-professional workplace small talk.",
+        "opening": "Hey! Long week, huh? Got any plans for the weekend?",
+    },
+    {
+        "id": "business_trip",
+        "title": "해외 출장",
+        "emoji": "✈️",
+        "description": "출장지에서 바이어 미팅 및 식사 대접",
+        "user_role": "출장 온 한국 회사 직원",
+        "ai_role": "현지 바이어",
+        "context": "You are a local buyer meeting the user who is on a business trip. Mix business discussion with dinner-table conversation — this practices the social side of business English.",
+        "opening": "Welcome! I hope your flight wasn't too tiring. Shall we grab dinner and talk business? I know a great place nearby.",
+    },
+    {
+        "id": "feedback_session",
+        "title": "피드백 주고받기",
+        "emoji": "💬",
+        "description": "상사와의 1:1 면담 및 성과 리뷰",
+        "user_role": "팀원",
+        "ai_role": "직속 상사",
+        "context": "You are the user's direct manager in a one-on-one performance review. Give both praise and constructive criticism, and ask the user about their goals and challenges. This practices receiving feedback and advocating for oneself professionally.",
+        "opening": "Thanks for making time today. Overall you've been doing well this quarter. Before I share my feedback, how do you feel things have been going?",
+    },
 ]
 
 
@@ -607,15 +669,16 @@ Respond ONLY in JSON format:
             ]
         elif past_history:
             prompt = """You are greeting a returning user who has practiced English with you before.
-Greet them with 1 short sentence only — use their name if you know it, and briefly reference something from past conversations.
+Greet them with 1 short sentence + 1 easy conversation-starter question — use their name if you know it, and reference something from past conversations if relevant.
 Respond ONLY in this JSON format:
 {
-    "response": "One short, warm welcome-back sentence",
+    "response": "One short, warm welcome-back sentence + one question to start the conversation",
     "has_correction": false,
     "original": "",
     "corrected": "",
     "explanation": "",
-    "pronunciation_tip": ""
+    "pronunciation_tip": "",
+    "hint": "질문에 답할 때 쓸 수 있는 시작 표현 1개 (한국어 설명 포함, 예: \\"'Not much, just...' — 별일 없었다고 할 때\\")"
 }"""
             messages = [{"role": "system", "content": SYSTEM_PROMPT}]
             messages.extend(past_history[-20:])
@@ -624,12 +687,13 @@ Respond ONLY in this JSON format:
             messages = [{"role": "user", "content": """You are starting an English conversation session with a new user.
 Respond ONLY in this JSON format:
 {
-    "response": "One short, friendly greeting sentence",
+    "response": "One short, friendly greeting sentence + one easy question to get them talking",
     "has_correction": false,
     "original": "",
     "corrected": "",
     "explanation": "",
-    "pronunciation_tip": ""
+    "pronunciation_tip": "",
+    "hint": "질문에 답할 때 쓸 수 있는 시작 표현 1개 (한국어 설명 포함)"
 }"""}]
 
         try:
@@ -762,6 +826,8 @@ Respond ONLY in this JSON format:
                 "session_complete": data.get("session_complete", False),
                 "phrase_confirmed": bool(data.get("phrase_confirmed", False)),
                 "opic_feedback": data.get("opic_feedback", ""),
+                "better_expression": data.get("better_expression", ""),
+                "better_explanation": data.get("better_explanation", ""),
             }
         except (json.JSONDecodeError, KeyError):
             text = re.sub(r'\{.*\}', '', content, flags=re.DOTALL).strip()

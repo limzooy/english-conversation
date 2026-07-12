@@ -151,6 +151,19 @@
     }
     .tip-card strong { color: #3182ce; }
 
+    /* 더 자연스러운 표현 카드 */
+    .upgrade-card {
+      background: #f0fff4; border-radius: 12px; padding: 12px 14px;
+      font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-left: 3px solid #38a169;
+    }
+    .upgrade-label {
+      font-size: 11px; font-weight: 700; color: #38a169;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .upgrade-phrase { color: #22543d; font-weight: 700; margin-bottom: 4px; font-size: 14px; }
+    .upgrade-explain { color: #718096; font-size: 12px; line-height: 1.5; }
+
     /* HINT + TRANSLATION BAR */
     .helper-bar {
       display: flex;
@@ -1681,7 +1694,7 @@
   function setHint(hint) {
     const bar = document.getElementById('hintBar');
     const text = document.getElementById('hintText');
-    if ((currentMode === 'business' || currentMode === 'opic') && hint) {
+    if (hint) {
       text.textContent = hint;
       bar.classList.add('visible');
     } else {
@@ -1778,6 +1791,17 @@
         ${data.explanation ? `<div class="correction-explain">${data.explanation}</div>` : ''}`;
       bw.appendChild(card);
     }
+    // 더 자연스러운/프로페셔널한 표현 제안
+    if (data.better_expression) {
+      const up = document.createElement('div');
+      up.className = 'upgrade-card';
+      up.innerHTML = `
+        <div class="upgrade-label">✨ ${currentMode === 'business' ? '더 프로페셔널한 표현' : '더 자연스러운 표현'}</div>
+        <div class="upgrade-phrase">${data.better_expression}</div>
+        ${data.better_explanation ? `<div class="upgrade-explain">${data.better_explanation}</div>` : ''}`;
+      bw.appendChild(up);
+    }
+
     if (data.pronunciation_tip) {
       const tip = document.createElement('div');
       tip.className = 'tip-card';

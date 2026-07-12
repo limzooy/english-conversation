@@ -731,6 +731,8 @@ def api_chat():
         "phrase_confirmed": result.get("phrase_confirmed", False),
         "phrase_data": phrase_data,
         "opic_feedback": result.get("opic_feedback", ""),
+        "better_expression": result.get("better_expression", ""),
+        "better_explanation": result.get("better_explanation", ""),
         "timestamp": timestamp,
         "evaluation": result.get("evaluation", ""),
         "feedback_kr": result.get("feedback_kr", ""),
