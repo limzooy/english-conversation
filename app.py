@@ -549,6 +549,26 @@ def api_greeting():
     scenario_id = request.args.get("scenario", "")
 
     scenario = None
+    if mode == "opic":
+        from opic_curriculum import OPIC_CURRICULUM, TOTAL_DAYS
+        progress = get_opic_progress()
+        day = min(progress["day"], TOTAL_DAYS)
+        content = OPIC_CURRICULUM[day - 1]
+        greeting_text = (
+            f"Hi! I'm Ava, your OPIc coach. Welcome to Day {day}! 🎯 "
+            f"Today's topic is \"{content['topic']}\". "
+            f"Check today's vocabulary and expressions above, then answer this question:\n\n"
+            f"Q. {content['question']}"
+        )
+        return jsonify({
+            "response": greeting_text,
+            "has_correction": False,
+            "hint": content["mission"],
+            "opic_day": content,
+            "day": day,
+            "total": TOTAL_DAYS,
+        })
+
     if mode == "speaking":
         return jsonify({
             "response": "Let's get started! 🎯 I'll show you a Korean sentence — type it in English. Don't worry about being perfect; natural variations are accepted!",
@@ -639,13 +659,14 @@ def api_chat():
     training_sentences_done = data.get("sentences_done", 0)
     training_correct_count = data.get("correct_count", 0)
     current_korean_prompt = data.get("current_korean_prompt", "")
+    opic_day = data.get("opic_day", None)
 
     from ai_handler import AIHandler
 
     ai = AIHandler(client)
     try:
         used_sentences = load_correct_sentences(training_day_info["day"]) if mode == "training" and training_day_info else []
-        result = ai.chat(user_message, conversation_history, mode=mode, scenario=scenario_data, phrase_category=phrase_category, phrase_data=phrase_data, day_info=training_day_info, sentences_done=training_sentences_done, used_sentences=used_sentences)
+        result = ai.chat(user_message, conversation_history, mode=mode, scenario=scenario_data, phrase_category=phrase_category, phrase_data=phrase_data, day_info=training_day_info, sentences_done=training_sentences_done, used_sentences=used_sentences, opic_day=opic_day)
         # Server-side phrase confirmation: if user message contains the phrase, always mark confirmed
         if mode == "phrase" and phrase_data:
             phrase_text = phrase_data.get("phrase", "").lower()
@@ -709,6 +730,7 @@ def api_chat():
         "phrase_meaning": result.get("phrase_meaning", ""),
         "phrase_confirmed": result.get("phrase_confirmed", False),
         "phrase_data": phrase_data,
+        "opic_feedback": result.get("opic_feedback", ""),
         "timestamp": timestamp,
         "evaluation": result.get("evaluation", ""),
         "feedback_kr": result.get("feedback_kr", ""),
@@ -757,6 +779,88 @@ Respond in this EXACT JSON format:
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── 오픽 90일 커리큘럼 ────────────────────────────────────────
+
+OPIC_PROGRESS_JSON = os.path.join(BASE_DIR, "opic_progress.json")
+
+def get_opic_progress():
+    """{'day': 현재 학습일, 'completed_days': [...], 'last_completed': 'YYYY-MM-DD'}"""
+    default = {"day": 1, "completed_days": [], "last_completed": ""}
+    db = get_db()
+    if db:
+        try:
+            raw = db.get_cache("opic_progress")
+            if raw:
+                return {**default, **json.loads(raw)}
+        except Exception as e:
+            app.logger.error(f"opic progress read failed: {e}")
+        return default
+    if os.path.exists(OPIC_PROGRESS_JSON):
+        try:
+            with open(OPIC_PROGRESS_JSON, encoding="utf-8") as f:
+                return {**default, **json.load(f)}
+        except Exception:
+            pass
+    return default
+
+
+def save_opic_progress(progress):
+    db = get_db()
+    if db:
+        try:
+            db.set_cache("opic_progress", json.dumps(progress, ensure_ascii=False))
+            return
+        except Exception as e:
+            app.logger.error(f"opic progress save failed: {e}")
+    try:
+        with open(OPIC_PROGRESS_JSON, "w", encoding="utf-8") as f:
+            json.dump(progress, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+@app.route("/api/opic-today")
+def api_opic_today():
+    """오늘의 커리큘럼 (현재 Day 기준)"""
+    from opic_curriculum import OPIC_CURRICULUM, TOTAL_DAYS, PHASE_INFO
+    progress = get_opic_progress()
+    day = min(progress["day"], TOTAL_DAYS)
+    content = OPIC_CURRICULUM[day - 1]
+    today = datetime.date.today().isoformat()
+    return jsonify({
+        "day": day,
+        "total": TOTAL_DAYS,
+        "completed_count": len(progress["completed_days"]),
+        "completed_today": progress["last_completed"] == today,
+        "all_complete": len(progress["completed_days"]) >= TOTAL_DAYS,
+        "phase_info": PHASE_INFO[content["phase"]],
+        "content": content,
+    })
+
+
+@app.route("/api/opic-complete", methods=["POST"])
+def api_opic_complete():
+    """오늘의 미션 완료 → 다음 Day로 진행"""
+    from opic_curriculum import TOTAL_DAYS
+    progress = get_opic_progress()
+    today = datetime.date.today().isoformat()
+    day = progress["day"]
+
+    if day not in progress["completed_days"]:
+        progress["completed_days"].append(day)
+    progress["last_completed"] = today
+    if day < TOTAL_DAYS:
+        progress["day"] = day + 1
+    save_opic_progress(progress)
+
+    return jsonify({
+        "ok": True,
+        "completed_day": day,
+        "next_day": progress["day"],
+        "all_complete": len(progress["completed_days"]) >= TOTAL_DAYS,
+    })
 
 
 # ── 스피킹 드릴 ──────────────────────────────────────────────

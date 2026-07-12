@@ -624,6 +624,39 @@
     .training-complete-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
     .training-complete-card p { font-size: 14px; opacity: 0.9; }
 
+    /* ── 오픽 배너 ─────────────────────────────────────────── */
+    .opic-banner {
+      display: none;
+      background: linear-gradient(135deg, #7c2d92, #a855c7);
+      color: white; padding: 12px 16px; font-size: 13px;
+      flex-direction: column; gap: 6px; flex-shrink: 0;
+    }
+    .opic-banner.visible { display: flex; }
+    .opic-banner-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .opic-banner-day { font-weight: 800; font-size: 14px; }
+    .opic-banner-topic { opacity: 0.9; flex: 1; text-align: center; }
+    .opic-complete-btn {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);
+      color: #fff; padding: 4px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .opic-complete-btn:hover { background: rgba(255,255,255,0.35); }
+    .opic-banner-vocab {
+      font-size: 12px; opacity: 0.95; line-height: 1.6;
+      background: rgba(0,0,0,0.15); border-radius: 8px; padding: 6px 10px;
+    }
+
+    /* 오픽 피드백 카드 */
+    .opic-feedback-card {
+      background: #faf5ff; border-radius: 10px; padding: 10px 14px;
+      font-size: 13px; border-left: 3px solid #a855c7; line-height: 1.6; color: #6b21a8;
+    }
+    .opic-feedback-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 4px; color: #9333ea;
+    }
+
     /* ── 스피킹 드릴 배너 ─────────────────────────────────────── */
     .speaking-banner {
       display: none;
@@ -835,6 +868,13 @@
             <div class="mode-item-desc">심화 주제로 유창함 키우기</div>
           </div>
         </div>
+        <div class="mode-item" id="cardOpic" onclick="selectMode('opic')">
+          <span class="mode-item-emoji">🎯</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">오픽 90일 코스</div>
+            <div class="mode-item-desc">IM3~IH 목표 데일리 커리큘럼</div>
+          </div>
+        </div>
         <div class="mode-item" id="cardSpeaking" onclick="selectMode('speaking')">
           <span class="mode-item-emoji">🎯</span>
           <div class="mode-item-text">
@@ -890,7 +930,8 @@
       <button class="mode-toggle-btn" id="toggleBusiness" onclick="switchMode('business')">비즈니스</button>
       <button class="mode-toggle-btn" id="togglePhrase" onclick="switchMode('phrase')">표현 학습</button>
       <button class="mode-toggle-btn" id="toggleTraining" onclick="switchMode('training')">기초 훈련</button>
-      <button class="mode-toggle-btn" id="toggleSpeaking" onclick="switchMode('speaking')">🎯 스피킹 드릴</button>
+      <button class="mode-toggle-btn" id="toggleOpic" onclick="switchMode('opic')">🎯 오픽 90일</button>
+      <button class="mode-toggle-btn" id="toggleSpeaking" onclick="switchMode('speaking')">스피킹 드릴</button>
       <button class="mode-toggle-btn" id="toggleElemLow" onclick="switchMode('elem_low')">초등 저학년</button>
       <button class="mode-toggle-btn" id="toggleElemHigh" onclick="switchMode('elem_high')">초등 고학년</button>
       <button class="mode-toggle-btn" id="toggleRealEnglish" onclick="switchMode('real_english')">🇺🇸 리얼 영어</button>
@@ -921,6 +962,16 @@
     <div class="scenario-banner-roles" id="bannerRoles"></div>
   </div>
   <button class="scenario-change-btn" onclick="showScenarioSelector()">시나리오 변경</button>
+</div>
+
+<!-- 오픽 배너 -->
+<div class="opic-banner" id="opicBanner">
+  <div class="opic-banner-top">
+    <span class="opic-banner-day" id="opicBannerDay">Day 1 / 90</span>
+    <span class="opic-banner-topic" id="opicBannerTopic"></span>
+    <button class="opic-complete-btn" onclick="completeOpicDay()">오늘 미션 완료 ✓</button>
+  </div>
+  <div class="opic-banner-vocab" id="opicBannerVocab"></div>
 </div>
 
 <!-- 스피킹 드릴 배너 -->
@@ -1028,6 +1079,9 @@
 
   // 표현 학습 상태
   let phraseState = { currentPhraseData: null };
+
+  // 오픽 커리큘럼 상태
+  let opicState = { day: null, opicDay: null };
 
   // 스피킹 드릴 상태
   let speakingState = {
@@ -1171,6 +1225,7 @@
   }
 
   const modeDescriptions = {
+    opic: '오픽 IM3~IH 목표 90일 커리큘럼입니다. 매일 실전 질문 1개 + 단어 5개 + 핵심 표현 2개를 학습하고, AI 면접관 Ava와 실전처럼 연습하세요. Phase 1(기초 묘사) → Phase 2(과거/비교/돌발) → Phase 3(롤플레이/의견/모의고사)로 성장합니다.',
     speaking: 'PDF 300문장 + 추가 200문장, 총 500개의 한국어 문장을 영어로 말하는 훈련입니다. 카테고리를 선택하거나 전체를 랜덤으로 연습하세요. AI가 유연하게 채점하고 더 자연스러운 표현을 알려드립니다.',
     free: '자유롭게 영어로 대화하며 AI가 문법과 표현을 실시간으로 교정해드립니다. 주제 제한 없이 편하게 대화해보세요.',
     business: '실전 비즈니스 상황을 롤플레이로 연습합니다. 아래에서 시나리오를 선택하세요.',
@@ -1185,7 +1240,7 @@
 
   function selectMode(mode) {
     selectedModeInModal = mode;
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic'].forEach(m => {
       const id = 'card' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       const el = document.getElementById(id);
       if (el) el.classList.toggle('selected', mode === m);
@@ -1238,6 +1293,9 @@
     } else if (selectedModeInModal === 'speaking') {
       btn.disabled = false;
       btn.textContent = `🎯 스피킹 드릴 시작! (${speakingState.categoryTitle})`;
+    } else if (selectedModeInModal === 'opic') {
+      btn.disabled = false;
+      btn.textContent = '🎯 오늘의 오픽 수업 시작!';
     } else {
       btn.disabled = false;
       btn.textContent = '시작하기';
@@ -1263,7 +1321,7 @@
     updateScenarioBanner();
 
     // 토글 버튼 동기화
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic'].forEach(m => {
       const id = 'toggle' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       document.getElementById(id)?.classList.toggle('active', currentMode === m);
     });
@@ -1273,7 +1331,11 @@
     setHint('');
 
     // 모드별 상태 초기화
-    if (currentMode === 'speaking') {
+    if (currentMode === 'opic') {
+      opicState = { day: null, opicDay: null };
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Ava의 질문에 영어로 답해보세요...';
+    } else if (currentMode === 'speaking') {
       speakingState = {
         category: speakingState.category,
         categoryTitle: speakingState.categoryTitle,
@@ -1326,6 +1388,8 @@
     phraseCard.classList.remove('visible');
     trainingBanner.classList.remove('visible');
     koreanPromptCard.classList.remove('visible');
+    document.getElementById('opicBanner').classList.remove('visible');
+    document.getElementById('speakingBanner').classList.remove('visible');
 
     if (currentMode === 'real_english' && currentScenario) {
       banner.classList.add('visible');
@@ -1346,6 +1410,39 @@
       document.getElementById('speakingBanner').classList.add('visible');
       document.getElementById('speakingBannerCat').textContent = `🎯 ${speakingState.categoryTitle}`;
       document.getElementById('speakingBannerProgress').textContent = '0 완료';
+    } else if (currentMode === 'opic') {
+      document.getElementById('opicBanner').classList.add('visible');
+    }
+  }
+
+  function updateOpicBanner(day, total, content) {
+    document.getElementById('opicBannerDay').textContent = `Day ${day} / ${total}`;
+    document.getElementById('opicBannerTopic').textContent = content.topic;
+    const vocabHtml = content.vocab.map(v => `<b>${v.word}</b> ${v.meaning}`).join(' · ');
+    const exprHtml = content.expressions.map(e => `"${e.phrase}"`).join(' / ');
+    document.getElementById('opicBannerVocab').innerHTML =
+      `📖 오늘의 단어: ${vocabHtml}<br>💬 오늘의 표현: ${exprHtml}`;
+  }
+
+  async function completeOpicDay() {
+    if (!confirm('오늘의 미션을 완료하셨나요? 다음 Day로 넘어갑니다.')) return;
+    try {
+      const res = await fetch('/api/opic-complete', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+          <div class="training-complete-card">
+            <div class="complete-emoji">${data.all_complete ? '🏆' : '🎉'}</div>
+            <h3>${data.all_complete ? '90일 커리큘럼 완주!' : `Day ${data.completed_day} 완료!`}</h3>
+            <p>${data.all_complete ? '축하합니다! 오픽 IM3~IH에 도전할 준비가 됐어요!' : `내일은 Day ${data.next_day}입니다. 꾸준함이 실력입니다! 💪`}</p>
+          </div></div>`;
+        messagesEl.appendChild(wrap);
+        scrollToBottom();
+      }
+    } catch (e) {
+      addMessage('ai', '완료 처리에 실패했습니다. 다시 시도해주세요.');
     }
   }
 
@@ -1414,6 +1511,11 @@
     if (mode === 'speaking') {
       document.getElementById('overlay').classList.remove('hidden');
       selectMode('speaking');
+      return;
+    }
+    if (mode === 'opic') {
+      selectedModeInModal = 'opic';
+      startChat();
       return;
     }
     if (mode === 'business') {
@@ -1579,7 +1681,7 @@
   function setHint(hint) {
     const bar = document.getElementById('hintBar');
     const text = document.getElementById('hintText');
-    if (currentMode === 'business' && hint) {
+    if ((currentMode === 'business' || currentMode === 'opic') && hint) {
       text.textContent = hint;
       bar.classList.add('visible');
     } else {
@@ -1653,6 +1755,16 @@
         <div class="training-feedback-label">${evalLabel}</div>
         <div>${data.feedback_kr}</div>
         ${correctAnswerHtml}`;
+      bw.appendChild(card);
+    }
+
+    // OPIc mode: show level feedback card
+    if (currentMode === 'opic' && data.opic_feedback) {
+      const card = document.createElement('div');
+      card.className = 'opic-feedback-card';
+      card.innerHTML = `
+        <div class="opic-feedback-label">🎯 오픽 피드백</div>
+        <div>${data.opic_feedback}</div>`;
       bw.appendChild(card);
     }
 
@@ -1736,6 +1848,9 @@
       }
       if (currentMode === 'phrase') {
         body.phrase_data = phraseState.currentPhraseData;
+      }
+      if (currentMode === 'opic') {
+        body.opic_day = opicState.opicDay;
       }
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -1930,6 +2045,16 @@
         playTTS(data.response);
         // 첫 문장 로드
         await loadNextSpeakingQuestion();
+      } else if (currentMode === 'opic') {
+        opicState.day = data.day;
+        opicState.opicDay = data.opic_day;
+        updateOpicBanner(data.day, data.total, data.opic_day);
+        addAiMessage({ response: data.response, has_correction: false });
+        playTTS(data.opic_day.question);
+        if (data.hint) {
+          document.getElementById('hintBar').classList.add('visible');
+          document.getElementById('hintText').textContent = '오늘의 미션: ' + data.hint;
+        }
       } else {
         addAiMessage({ response: data.response, has_correction: false });
         playTTS(data.response);
@@ -2112,7 +2237,13 @@
   async function init() {
     await loadScenarios();
     await loadTodayHistory();
-    // 오버레이는 자동으로 표시됨 — 사용자가 모드 선택 후 시작
+    // URL에 mode 파라미터가 있으면 해당 모드 바로 시작 (예: /chat?mode=opic)
+    const urlMode = new URLSearchParams(location.search).get('mode');
+    if (urlMode === 'opic') {
+      document.getElementById('overlay').classList.add('hidden');
+      switchMode('opic');
+    }
+    // 그 외에는 오버레이에서 사용자가 모드 선택 후 시작
   }
 
   init();

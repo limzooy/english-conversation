@@ -300,6 +300,79 @@
     .expr-meaning { font-size: 13px; color: #dd6b20; font-weight: 600; margin-bottom: 3px; }
     .expr-example { font-size: 12px; color: #718096; font-style: italic; }
 
+    /* OPIC CURRICULUM CARD */
+    .opic-card { margin-bottom: 24px; }
+    .opic-header {
+      background: linear-gradient(135deg, #7c2d92, #a855c7);
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .opic-header h3 { font-size: 15px; font-weight: 700; }
+    .opic-day-badge {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 800; flex-shrink: 0;
+    }
+    .opic-body {
+      background: #fff;
+      border-radius: 0 0 16px 16px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    .opic-progress-track {
+      background: #f0f2f8; border-radius: 20px; height: 8px;
+      overflow: hidden; margin-bottom: 4px;
+    }
+    .opic-progress-fill {
+      background: linear-gradient(90deg, #a855c7, #7c2d92);
+      height: 100%; border-radius: 20px; transition: width 0.4s ease;
+    }
+    .opic-progress-label { font-size: 11px; color: #a0aec0; margin-bottom: 12px; }
+    .opic-topic { font-size: 16px; font-weight: 800; color: #2d3748; margin-bottom: 2px; }
+    .opic-phase { font-size: 12px; color: #9333ea; font-weight: 600; margin-bottom: 10px; }
+    .opic-mission {
+      background: #faf5ff; border-left: 3px solid #a855c7;
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 13px; color: #6b21a8; margin-bottom: 12px; line-height: 1.5;
+    }
+    .opic-vocab-list { margin-bottom: 12px; }
+    .opic-vocab-item {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 7px 0; border-bottom: 1px solid #f7f5ff; font-size: 13px;
+    }
+    .opic-vocab-item:last-child { border-bottom: none; }
+    .opic-vocab-word { font-weight: 700; color: #2d3748; flex-shrink: 0; }
+    .opic-vocab-meaning { color: #9333ea; font-weight: 600; flex-shrink: 0; }
+    .opic-vocab-example { color: #a0aec0; font-style: italic; font-size: 12px; }
+    .opic-expr {
+      background: #fdf4ff; border-radius: 8px; padding: 8px 12px;
+      font-size: 13px; margin-bottom: 6px;
+    }
+    .opic-expr b { color: #7c2d92; }
+    .opic-expr span { color: #718096; font-size: 12px; }
+    .opic-start-btn {
+      display: block; width: 100%; text-align: center;
+      background: linear-gradient(135deg, #7c2d92, #a855c7);
+      color: #fff; text-decoration: none;
+      padding: 12px; border-radius: 12px;
+      font-size: 14px; font-weight: 700; margin-top: 14px;
+      transition: opacity 0.2s;
+    }
+    .opic-start-btn:hover { opacity: 0.9; }
+    .opic-done-badge {
+      display: block; text-align: center;
+      background: #f0fff4; color: #38a169;
+      padding: 10px; border-radius: 12px;
+      font-size: 13px; font-weight: 700; margin-top: 14px;
+      border: 1px solid #c6f6d5;
+    }
+
     /* MOBILE */
     @media (max-width: 768px) {
       nav { padding: 0 16px; }
@@ -352,8 +425,18 @@
 
 <div class="container">
 
-  <!-- 왼쪽: 오늘의 비즈니스 영어 -->
+  <!-- 왼쪽: 오늘의 학습 -->
   <div class="words-section">
+
+    <!-- 오픽 90일 커리큘럼 카드 -->
+    <div class="opic-card" id="opicCard" style="display:none;">
+      <div class="opic-header">
+        <h3>🎯 오픽 90일 커리큘럼</h3>
+        <span class="opic-day-badge" id="opicDayBadge">Day 1 / 90</span>
+      </div>
+      <div class="opic-body" id="opicBody"></div>
+    </div>
+
     <div class="daily-header">
       <h3>📚 오늘의 비즈니스 영어</h3>
       <span class="daily-date" id="dailyDate"></span>
@@ -571,8 +654,51 @@
     }
   }
 
+  async function loadOpicToday() {
+    try {
+      const res = await fetch('/api/opic-today');
+      const data = await res.json();
+      const c = data.content;
+      const pct = Math.round((data.completed_count / data.total) * 100);
+
+      document.getElementById('opicDayBadge').textContent = `Day ${data.day} / ${data.total}`;
+
+      const vocabHtml = c.vocab.map(v => `
+        <div class="opic-vocab-item">
+          <span class="opic-vocab-word">${v.word}</span>
+          <span class="opic-vocab-meaning">${v.meaning}</span>
+          <span class="opic-vocab-example">"${v.example}"</span>
+        </div>`).join('');
+
+      const exprHtml = c.expressions.map(e => `
+        <div class="opic-expr"><b>${e.phrase}</b><br><span>${e.meaning}</span></div>`).join('');
+
+      const actionHtml = data.completed_today
+        ? `<div class="opic-done-badge">✅ 오늘 미션 완료! 내일 Day ${data.day}에서 만나요</div>
+           <a href="/chat?mode=opic" class="opic-start-btn" style="margin-top:8px;">한 번 더 연습하기 →</a>`
+        : `<a href="/chat?mode=opic" class="opic-start-btn">🎤 오늘의 수업 시작하기 →</a>`;
+
+      document.getElementById('opicBody').innerHTML = `
+        <div class="opic-progress-track"><div class="opic-progress-fill" style="width:${pct}%"></div></div>
+        <div class="opic-progress-label">${data.completed_count}일 완료 · ${pct}%</div>
+        <div class="opic-topic">${c.topic}</div>
+        <div class="opic-phase">Phase ${c.phase} — ${data.phase_info.name} (${c.type})</div>
+        <div class="opic-mission">📌 오늘의 미션: ${c.mission}</div>
+        <div style="font-size:12px;font-weight:700;color:#a0aec0;margin-bottom:4px;">📖 오늘의 단어 5</div>
+        <div class="opic-vocab-list">${vocabHtml}</div>
+        <div style="font-size:12px;font-weight:700;color:#a0aec0;margin-bottom:6px;">💬 오늘의 표현</div>
+        ${exprHtml}
+        ${actionHtml}`;
+
+      document.getElementById('opicCard').style.display = 'block';
+    } catch (e) {
+      // 커리큘럼 로드 실패 시 카드 숨김 유지
+    }
+  }
+
   loadActiveDates();
   loadDailyWords();
+  loadOpicToday();
 </script>
 </body>
 </html>

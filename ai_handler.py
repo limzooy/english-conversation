@@ -308,6 +308,41 @@ RULES:
 - When phrase_confirmed = true, congratulate briefly and tell them the next expression is coming"""
 
 
+OPIC_SYSTEM_PROMPT = """You are Ava, a friendly OPIc (Oral Proficiency Interview - computer) examiner and coach for a Korean learner targeting IM3~IH level.
+
+Today's session — Day {day} of a 90-day curriculum:
+- Topic: {topic} ({qtype})
+- Main question: {question}
+- Today's target vocabulary: {vocab}
+- Today's target expressions: {expressions}
+
+Your job each turn:
+1. React naturally to the learner's answer like a real OPIc interviewer (warm, encouraging)
+2. Evaluate their answer against OPIc criteria: fluency, sentence variety, detail, past/present tense accuracy, connectors
+3. If the answer is too short (1-2 sentences), push for more detail with a follow-up question ("Can you tell me more about...?")
+4. If they used today's target vocab/expressions, praise it specifically
+5. Give ONE concrete upgrade tip per turn in Korean (e.g., how to add detail, better connector, richer expression)
+6. After 2-3 good exchanges on the main question, you may ask ONE related follow-up question (OPIc combo style)
+
+ALWAYS respond in this EXACT JSON format:
+{{
+    "response": "Your natural interviewer response + follow-up question (2-4 sentences, English)",
+    "has_correction": true or false,
+    "original": "learner's sentence with an error (empty if none)",
+    "corrected": "corrected version (empty if none)",
+    "explanation": "Korean explanation of the correction (empty if none)",
+    "pronunciation_tip": "Korean pronunciation tip for a key word (can be empty)",
+    "hint": "다음 답변을 업그레이드할 팁 1개 (한국어, 구체적으로. 예: '과거시제로 어제 일을 덧붙여보세요')",
+    "opic_feedback": "현재 답변의 오픽 레벨 진단 + 칭찬 + 개선점 (한국어 2-3문장)"
+}}
+
+Rules:
+- Keep the conversation going — never end it yourself
+- Speak at a natural pace level: clear, not too complex
+- Corrections: only correct errors that would hurt their OPIc score; ignore trivial slips
+- Be specific in opic_feedback: mention what IM3/IH answers need (detail, connectors, tense variety)"""
+
+
 BUSINESS_PHRASES = [
     {
         "category": "meeting",
@@ -640,8 +675,19 @@ Respond ONLY in this JSON format:
                 "session_complete": False,
             }
 
-    def chat(self, user_message: str, conversation_history: list, mode: str = "free", scenario: dict = None, phrase_category: str = None, phrase_data: dict = None, day_info: dict = None, sentences_done: int = 0, used_sentences: list = None) -> dict:
-        if mode == "training":
+    def chat(self, user_message: str, conversation_history: list, mode: str = "free", scenario: dict = None, phrase_category: str = None, phrase_data: dict = None, day_info: dict = None, sentences_done: int = 0, used_sentences: list = None, opic_day: dict = None) -> dict:
+        if mode == "opic" and opic_day:
+            vocab_str = ", ".join(f"{v['word']} ({v['meaning']})" for v in opic_day["vocab"])
+            expr_str = " / ".join(e["phrase"] for e in opic_day["expressions"])
+            system = OPIC_SYSTEM_PROMPT.format(
+                day=opic_day["day"],
+                topic=opic_day["topic"],
+                qtype=opic_day["type"],
+                question=opic_day["question"],
+                vocab=vocab_str,
+                expressions=expr_str,
+            )
+        elif mode == "training":
             _day_info = day_info if day_info else TRAINING_CURRICULUM[0]
             _used = used_sentences or []
             used_str = "\n".join(f"- {s}" for s in _used) if _used else "(없음)"
@@ -715,6 +761,7 @@ Respond ONLY in this JSON format:
                 "progress": data.get("progress", {"current": 0, "total": 8}),
                 "session_complete": data.get("session_complete", False),
                 "phrase_confirmed": bool(data.get("phrase_confirmed", False)),
+                "opic_feedback": data.get("opic_feedback", ""),
             }
         except (json.JSONDecodeError, KeyError):
             text = re.sub(r'\{.*\}', '', content, flags=re.DOTALL).strip()
