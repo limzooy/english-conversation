@@ -844,11 +844,20 @@ def api_opic_today():
 
 @app.route("/api/opic-complete", methods=["POST"])
 def api_opic_complete():
-    """오늘의 미션 완료 → 다음 Day로 진행"""
+    """오늘의 미션 완료 → 다음 Day로 진행 (하루 1 Day 제한)"""
     from opic_curriculum import TOTAL_DAYS
     progress = get_opic_progress()
     today = datetime.date.today().isoformat()
     day = progress["day"]
+
+    # 하루에 한 Day만 완료 가능 (간격 반복 설계 유지)
+    if progress["last_completed"] == today:
+        return jsonify({
+            "ok": False,
+            "already_completed_today": True,
+            "next_day": progress["day"],
+            "all_complete": len(progress["completed_days"]) >= TOTAL_DAYS,
+        })
 
     if day not in progress["completed_days"]:
         progress["completed_days"].append(day)

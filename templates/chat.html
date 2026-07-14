@@ -1486,6 +1486,10 @@
     try {
       const res = await fetch('/api/opic-complete', { method: 'POST' });
       const data = await res.json();
+      if (data.already_completed_today) {
+        addMessage('ai', `오늘의 미션은 이미 완료했어요! ✅ 내일 Day ${data.next_day}로 이어집니다. 더 연습하고 싶다면 지금처럼 Ava와 계속 대화하거나 🔁 복습 모드를 활용해보세요.`);
+        return;
+      }
       if (data.ok) {
         const wrap = document.createElement('div');
         wrap.className = 'msg ai';
