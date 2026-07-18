@@ -1157,4 +1157,4 @@ def api_tts():
 
 if __name__ == "__main__":
     print("🌐 http://localhost:5000 에서 실행 중...")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
