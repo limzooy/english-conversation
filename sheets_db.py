@@ -41,7 +41,12 @@ class SheetsDB:
         self.spreadsheet_id = spreadsheet_id
         self._svc = _build_service()
         self._sheet = self._svc.spreadsheets()
-        self._ensure_sheets()
+        # 헤더 보정은 best-effort: 시트가 이미 존재하면 검증이 실패(타임아웃 등)해도
+        # 읽기/쓰기는 가능하므로 초기화 전체를 막지 않는다.
+        try:
+            self._ensure_sheets()
+        except Exception:
+            pass
 
     def _ensure_sheets(self):
         meta = self._sheet.get(spreadsheetId=self.spreadsheet_id).execute()
@@ -55,13 +60,16 @@ class SheetsDB:
                 spreadsheetId=self.spreadsheet_id,
                 body={"requests": requests},
             ).execute()
-        for name, headers in ALL_SHEETS.items():
-            result = self._sheet.values().get(
-                spreadsheetId=self.spreadsheet_id,
-                range=f"'{name}'!A1:Z1",
-            ).execute()
-            if not result.get("values"):
-                self._append(name, headers)
+        # 모든 시트의 헤더 행을 한 번의 batchGet 으로 확인(콜드스타트 왕복 최소화)
+        names = list(ALL_SHEETS.keys())
+        resp = self._sheet.values().batchGet(
+            spreadsheetId=self.spreadsheet_id,
+            ranges=[f"'{name}'!A1:Z1" for name in names],
+        ).execute()
+        value_ranges = resp.get("valueRanges", [])
+        for name, vr in zip(names, value_ranges):
+            if not vr.get("values"):
+                self._append(name, ALL_SHEETS[name])
 
     def _append(self, sheet: str, row: list):
         self._sheet.values().append(

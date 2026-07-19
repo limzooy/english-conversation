@@ -23,16 +23,14 @@ app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # Google Sheets DB (SPREADSHEET_ID 환경변수가 있을 때만 활성화)
 _db = None
-_db_init_failed = False  # 실패를 기억해 매 요청마다 느린 재시도를 하지 않음
 
 def get_db():
-    global _db, _db_init_failed
-    if _db is None and not _db_init_failed and os.environ.get("SPREADSHEET_ID"):
+    global _db
+    if _db is None and os.environ.get("SPREADSHEET_ID"):
         try:
             from sheets_db import SheetsDB
             _db = SheetsDB(os.environ["SPREADSHEET_ID"])
         except Exception as e:
-            _db_init_failed = True
             app.logger.error(f"Sheets DB init failed: {e}")
     return _db
 
@@ -471,8 +469,6 @@ def _require_access_code():
         return
     path = request.path
     if path == "/unlock" or path.startswith("/static"):
-        return
-    if path == "/api/debug":  # TODO: Sheets 진단 후 제거 (임시 공개)
         return
     if path.startswith("/api/"):
         return jsonify({"error": "unauthorized"}), 401
