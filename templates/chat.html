@@ -1036,7 +1036,7 @@
 
     <!-- 한국어 프롬프트 카드 (기초 훈련 모드) -->
     <div class="korean-prompt-card" id="koreanPromptCard">
-      <div class="korean-prompt-label">번역해보세요</div>
+      <div class="korean-prompt-label" id="koreanPromptLabel">번역해보세요</div>
       <div class="korean-prompt-text" id="koreanPromptText"></div>
       <div class="korean-prompt-hint" id="koreanPromptHint"></div>
     </div>
@@ -1515,10 +1515,11 @@
     document.getElementById('trainingProgressLabel').textContent = `${trainingState.sentencesDone} / 8`;
   }
 
-  function updateKoreanPromptCard(korean, hint) {
+  function updateKoreanPromptCard(korean, hint, label) {
     const card = document.getElementById('koreanPromptCard');
     const textEl = document.getElementById('koreanPromptText');
     const hintEl = document.getElementById('koreanPromptHint');
+    document.getElementById('koreanPromptLabel').textContent = label || '번역해보세요';
     if (korean) {
       textEl.textContent = korean;
       hintEl.textContent = hint ? `힌트: ${hint}` : '';
@@ -2302,15 +2303,20 @@
       const wordCount = item.word.split(' ').length;
       updateKoreanPromptCard(
         `📖 뜻: "${item.meaning}" — 영어 단어는?`,
-        `Day ${item.day} 단어 · '${item.word[0]}'로 시작, ${wordCount}단어`);
+        `Day ${item.day} 단어 · '${item.word[0]}'로 시작, ${wordCount}단어`,
+        '복습 퀴즈 — 단어');
     } else if (item.type === 'correction') {
       updateKoreanPromptCard(
-        `✏️ 예전에 이렇게 말했어요: "${item.original}" — 올바른 문장으로 고쳐 말해보세요`,
-        '회화에서 교정받았던 문장이에요');
+        `✏️ 올바른 문장: "${item.corrected}"`,
+        `예전에 "${item.original}"라고 말했던 문장이에요 — 올바른 문장을 소리 내어 따라 말해보세요` +
+        (item.explanation ? ` · ${item.explanation}` : ''),
+        '따라 말하기 — 교정 문장');
+      playTTS(item.corrected);  // 발음 듣고 섀도잉
     } else if (item.type === 'drill') {
       updateKoreanPromptCard(
         `🔄 ${item.korean}`,
-        '스피킹 드릴에서 틀렸던 문장 — 영어로 다시 도전!');
+        '스피킹 드릴에서 틀렸던 문장 — 영어로 다시 도전!',
+        '다시 도전 — 드릴 오답');
     }
   }
 
@@ -2371,15 +2377,29 @@
       return;
     }
 
-    // 문장형(교정/드릴): AI 채점
+    // 교정 문장: 정답을 보고 따라 말하기 — 즉시 비교 채점 (섀도잉)
+    if (item.type === 'correction') {
+      const norm = s => s.toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
+      const ok = norm(msg) === norm(item.corrected);
+      if (ok) reviewState.correct += 1;
+      renderReviewFeedback(ok,
+        ok ? '✅ 완벽해요!' : '❌ 조금 달라요',
+        ok ? '올바른 문장이 입에 붙었어요! 실전 대화에서도 이렇게 말해보세요.'
+           : '아래 정답과 비교해서 다시 한번 소리 내어 읽어보세요.',
+        ok ? '' : item.corrected,
+        item.explanation ? `📝 ${item.explanation}` : '');
+      playTTS(item.corrected);
+      await advanceReview();
+      return;
+    }
+
+    // 드릴 오답: AI 채점
     isWaiting = true;
     sendBtn.disabled = true;
     document.getElementById('micBtn').disabled = true;
     showTyping();
     try {
-      const body = item.type === 'drill'
-        ? { user_answer: msg, correct_answer: item.english, korean: item.korean }
-        : { user_answer: msg, correct_answer: item.corrected, korean: '(교정 문장 복습)' };
+      const body = { user_answer: msg, correct_answer: item.english, korean: item.korean };
       const res = await fetch('/api/speaking-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
