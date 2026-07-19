@@ -23,14 +23,16 @@ app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 # Google Sheets DB (SPREADSHEET_ID 환경변수가 있을 때만 활성화)
 _db = None
+_db_init_failed = False  # 실패를 기억해 매 요청마다 느린 재시도를 하지 않음
 
 def get_db():
-    global _db
-    if _db is None and os.environ.get("SPREADSHEET_ID"):
+    global _db, _db_init_failed
+    if _db is None and not _db_init_failed and os.environ.get("SPREADSHEET_ID"):
         try:
             from sheets_db import SheetsDB
             _db = SheetsDB(os.environ["SPREADSHEET_ID"])
         except Exception as e:
+            _db_init_failed = True
             app.logger.error(f"Sheets DB init failed: {e}")
     return _db
 
@@ -47,7 +49,11 @@ TRAINING_SENTENCES_HEADERS = ["요일번호", "한국어문장", "평가결과"]
 PHRASE_PROGRESS_CSV = os.path.join(BASE_DIR, "phrase_progress.csv")
 PHRASE_PROGRESS_HEADERS = ["표현", "카테고리", "완료날짜"]
 
+# 원본 OpenAI 클라이언트. 파일 하단에서 일일 비용 가드로 감싼다(client 재할당).
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# 하루 API 비용 상한 (USD). 환경변수 DAILY_BUDGET_USD 로 조정 가능.
+DAILY_BUDGET_USD = float(os.environ.get("DAILY_BUDGET_USD", "1.0"))
 
 
 def init_csvs():
@@ -585,6 +591,8 @@ def api_translate():
             temperature=0.3,
         )
         return jsonify({"translation": response.choices[0].message.content.strip()})
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -746,6 +754,8 @@ def api_chat():
             phrase_text = phrase_data.get("phrase", "").lower()
             if phrase_text and phrase_text in user_message.lower():
                 result["phrase_confirmed"] = True
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -853,6 +863,8 @@ Respond in this EXACT JSON format:
         )
         result = json.loads(response.choices[0].message.content)
         return jsonify(result)
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -987,6 +999,76 @@ def _save_json_store(key, data):
             json.dump(data, f, ensure_ascii=False)
     except OSError:
         pass
+
+
+# ── 일일 API 비용 가드 ────────────────────────────────────────
+# 오늘 누적 비용을 저장소(Sheets 캐시 우선, 로컬 JSON 폴백)에 날짜별로 기록하고,
+# DAILY_BUDGET_USD 를 넘으면 이후 OpenAI 호출을 차단한다.
+
+def _spend_key():
+    return "api_spend_" + datetime.date.today().isoformat()
+
+
+def _spend_tmp_path():
+    # Vercel 등 앱 디렉토리가 읽기 전용인 환경 대비: 쓰기 가능한 임시 디렉토리 사용.
+    return os.path.join(tempfile.gettempdir(), _spend_key() + ".json")
+
+
+def get_today_spend():
+    db = get_db()
+    if db:
+        try:
+            raw = db.get_cache(_spend_key())
+            return float(json.loads(raw)["usd"]) if raw else 0.0
+        except Exception:
+            return 0.0
+    # 로컬/서버리스: 쓰기 가능한 임시 파일에 기록
+    try:
+        with open(_spend_tmp_path(), encoding="utf-8") as f:
+            return float(json.load(f).get("usd", 0.0))
+    except (FileNotFoundError, ValueError, TypeError, KeyError):
+        return 0.0
+
+
+def add_today_spend(amount):
+    current = get_today_spend()
+    new_total = current + float(amount)
+    db = get_db()
+    if db:
+        try:
+            db.set_cache(_spend_key(), json.dumps({"usd": new_total}))
+            return
+        except Exception as e:
+            app.logger.error(f"spend save failed: {e}")
+    try:
+        with open(_spend_tmp_path(), "w", encoding="utf-8") as f:
+            json.dump({"usd": new_total}, f)
+    except OSError:
+        pass
+
+
+# 원본 client 를 비용 가드로 감싼다(app 전역 client 재할당).
+from cost_guard import GuardedOpenAI, BudgetExceededError
+
+client = GuardedOpenAI(client, get_today_spend, add_today_spend, DAILY_BUDGET_USD)
+
+
+@app.route("/api/budget")
+def api_budget():
+    """오늘 사용액/한도 조회 (모니터링용)"""
+    spent = get_today_spend()
+    return jsonify({
+        "date": datetime.date.today().isoformat(),
+        "spent_usd": round(spent, 4),
+        "budget_usd": DAILY_BUDGET_USD,
+        "remaining_usd": round(max(0.0, DAILY_BUDGET_USD - spent), 4),
+        "exceeded": spent >= DAILY_BUDGET_USD,
+    })
+
+
+@app.errorhandler(BudgetExceededError)
+def _handle_budget_exceeded(e):
+    return jsonify({"error": str(e), "budget_exceeded": True}), 429
 
 
 @app.route("/api/review-today")
@@ -1141,6 +1223,8 @@ Respond ONLY in this JSON format:
         )
         result = json.loads(response.choices[0].message.content)
         return jsonify(result)
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1200,6 +1284,8 @@ def api_transcribe():
                 language="en",
             )
         return jsonify({"text": transcript.text.strip()})
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -1223,6 +1309,8 @@ def api_tts():
             input=text,
         )
         return send_file(io.BytesIO(response.content), mimetype="audio/mpeg")
+    except BudgetExceededError:
+        raise
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
