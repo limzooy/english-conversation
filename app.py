@@ -1,13 +1,18 @@
 """영어 회화 웹 앱 - Flask 백엔드"""
 
 import os
+import io
 import csv
 import json
+import hmac
 import uuid
 import datetime
 import tempfile
 
-from flask import Flask, render_template, request, jsonify, session, send_file
+from flask import (
+    Flask, render_template, request, jsonify, session, send_file,
+    redirect, render_template_string,
+)
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -120,7 +125,9 @@ def load_shown_words() -> list:
 def save_shown_words(new_words: list):
     db = get_db()
     existing = load_shown_words()
-    combined = list(set(existing + [w.lower() for w in new_words]))
+    combined = list(dict.fromkeys(existing + [w.lower() for w in new_words]))
+    # 프롬프트 토큰 비용이 무한히 커지지 않도록 최근 300개만 유지
+    combined = combined[-300:]
     if db:
         db.set_cache("shown_words", json.dumps(combined, ensure_ascii=False))
         return
@@ -282,14 +289,20 @@ def get_training_status():
         except FileNotFoundError:
             pass
 
-    completed_days = sum(1 for r in rows if int(r.get("완료문장수", 0)) >= 8)
-    today_row = next((r for r in rows if r["날짜"] == today), None)
+    def _to_int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 0
 
-    sentences_done = int(today_row["완료문장수"]) if today_row else 0
-    correct_count = int(today_row["정답수"]) if today_row else 0
+    completed_days = sum(1 for r in rows if _to_int(r.get("완료문장수", 0)) >= 8)
+    today_row = next((r for r in rows if r.get("날짜") == today), None)
+
+    sentences_done = _to_int(today_row["완료문장수"]) if today_row else 0
+    correct_count = _to_int(today_row["정답수"]) if today_row else 0
 
     # current day: completed days + 1, but if today already completed, stay at completed count
-    if today_row and int(today_row["완료문장수"]) >= 8:
+    if today_row and sentences_done >= 8:
         current_day = min(completed_days, 30)
     else:
         current_day = min(completed_days + 1, 30)
@@ -415,6 +428,64 @@ def get_next_phrase_data():
     return None  # 모든 표현 완료
 
 
+# ── 접근 코드 게이트 (선택) ────────────────────────────────────────────────────
+# ACCESS_CODE 환경변수가 설정된 경우에만 활성화됩니다. 미설정 시 기존과 동일하게
+# 누구나 접근 가능(무해). 공개 배포 시 OpenAI 크레딧 남용을 막기 위한 최소 장치.
+ACCESS_CODE = os.environ.get("ACCESS_CODE")
+
+_UNLOCK_PAGE = """<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>잠금</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       display:flex;min-height:100vh;align-items:center;justify-content:center;
+       margin:0;background:#0f172a;color:#e2e8f0}
+  form{background:#1e293b;padding:32px;border-radius:16px;width:280px;text-align:center}
+  h1{font-size:18px;margin:0 0 16px}
+  input{width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #334155;
+        background:#0f172a;color:#e2e8f0;font-size:16px;margin-bottom:12px}
+  button{width:100%;padding:12px;border:0;border-radius:8px;background:#6366f1;color:#fff;
+         font-size:16px;cursor:pointer}
+  .err{color:#f87171;font-size:13px;margin-bottom:8px;min-height:16px}
+</style></head>
+<body><form method="post">
+  <h1>🔒 접근 코드를 입력하세요</h1>
+  <div class="err">{{ error }}</div>
+  <input type="password" name="code" autofocus autocomplete="current-password">
+  <button type="submit">입장</button>
+</form></body></html>"""
+
+
+@app.before_request
+def _require_access_code():
+    if not ACCESS_CODE:
+        return  # 게이트 비활성화
+    if session.get("authed"):
+        return
+    path = request.path
+    if path == "/unlock" or path.startswith("/static"):
+        return
+    if path.startswith("/api/"):
+        return jsonify({"error": "unauthorized"}), 401
+    return redirect("/unlock")
+
+
+@app.route("/unlock", methods=["GET", "POST"])
+def unlock():
+    if not ACCESS_CODE:
+        return redirect("/")
+    error = ""
+    if request.method == "POST":
+        code = (request.form.get("code") or "").strip()
+        if hmac.compare_digest(code, ACCESS_CODE):
+            session["authed"] = True
+            session.permanent = True
+            return redirect("/")
+        error = "코드가 올바르지 않습니다."
+    return render_template_string(_UNLOCK_PAGE, error=error)
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/api/debug")
@@ -475,7 +546,7 @@ def api_history(date_str):
 
 @app.route("/api/memo/<date_str>", methods=["POST"])
 def api_save_memo(date_str):
-    data = request.json
+    data = request.get_json(silent=True) or {}
     save_memo(date_str, data.get("memo", ""))
     return jsonify({"ok": True})
 
@@ -503,7 +574,7 @@ def api_real_english_situations():
 
 @app.route("/api/translate", methods=["POST"])
 def api_translate():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
     if not text:
         return jsonify({"error": "No text"}), 400
@@ -533,7 +604,10 @@ def api_training_status():
 
 @app.route("/api/training-progress", methods=["POST"])
 def api_training_progress():
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    required = ("date", "day_number", "sentences_done", "correct_count")
+    if any(k not in data for k in required):
+        return jsonify({"error": "Missing fields"}), 400
     update_training_progress(
         data["date"], data["day_number"], data["sentences_done"], data["correct_count"]
     )
@@ -643,7 +717,7 @@ def api_greeting():
 
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     user_message = data.get("message", "").strip()
     if not user_message:
         return jsonify({"error": "Empty message"}), 400
@@ -745,7 +819,7 @@ def api_chat():
 
 @app.route("/api/chunk-text", methods=["POST"])
 def api_chunk_text():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
     if not text:
         return jsonify({"error": "No text provided"}), 400
@@ -970,7 +1044,7 @@ def api_review_today():
 @app.route("/api/drill-mistake", methods=["POST"])
 def api_drill_mistake():
     """스피킹 드릴 오답 저장 (복습용)"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     s = data.get("sentence")
     if not s or "id" not in s:
         return jsonify({"error": "No sentence"}), 400
@@ -988,7 +1062,7 @@ def api_drill_mistake():
 @app.route("/api/review-result", methods=["POST"])
 def api_review_result():
     """복습 결과 반영 — 드릴 오답을 맞히면 오답 목록에서 제거"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     if data.get("type") == "drill" and data.get("correct") and data.get("id") is not None:
         mistakes = _load_json_store("drill_mistakes", [])
         mistakes = [m for m in mistakes if m["id"] != data["id"]]
@@ -1014,7 +1088,7 @@ def api_speaking_next():
     """다음 문장 반환 (이미 본 문장 제외, 랜덤)"""
     import random
     from speaking_sentences import SPEAKING_SENTENCES
-    data = request.json
+    data = request.get_json(silent=True) or {}
     category = data.get("category", "전체")
     exclude_ids = set(data.get("exclude_ids", []))
 
@@ -1031,7 +1105,7 @@ def api_speaking_next():
 @app.route("/api/speaking-check", methods=["POST"])
 def api_speaking_check():
     """사용자 답변 평가"""
-    data = request.json
+    data = request.get_json(silent=True) or {}
     user_answer = data.get("user_answer", "").strip()
     correct_answer = data.get("correct_answer", "").strip()
     korean = data.get("korean", "").strip()
@@ -1099,8 +1173,11 @@ def api_phrase_list():
 
 @app.route("/api/phrase-complete", methods=["POST"])
 def api_phrase_complete():
-    data = request.json
-    save_phrase_complete(data["phrase"], data.get("category", ""))
+    data = request.get_json(silent=True) or {}
+    phrase = data.get("phrase")
+    if not phrase:
+        return jsonify({"error": "No phrase"}), 400
+    save_phrase_complete(phrase, data.get("category", ""))
     next_phrase = get_next_phrase_data()
     return jsonify({"ok": True, "next_phrase": next_phrase})
 
@@ -1134,13 +1211,10 @@ def api_transcribe():
 
 @app.route("/api/tts", methods=["POST"])
 def api_tts():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
     if not text:
         return jsonify({"error": "No text"}), 400
-
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-        temp_path = f.name
 
     try:
         response = client.audio.speech.create(
@@ -1148,9 +1222,7 @@ def api_tts():
             voice="nova",
             input=text,
         )
-        with open(temp_path, "wb") as f:
-            f.write(response.content)
-        return send_file(temp_path, mimetype="audio/mpeg")
+        return send_file(io.BytesIO(response.content), mimetype="audio/mpeg")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

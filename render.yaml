@@ -13,3 +13,5 @@ services:
         sync: false
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
+      - key: ACCESS_CODE
+        sync: false
