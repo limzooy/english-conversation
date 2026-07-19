@@ -472,6 +472,8 @@ def _require_access_code():
     path = request.path
     if path == "/unlock" or path.startswith("/static"):
         return
+    if path == "/api/debug":  # TODO: Sheets 진단 후 제거 (임시 공개)
+        return
     if path.startswith("/api/"):
         return jsonify({"error": "unauthorized"}), 401
     return redirect("/unlock")
@@ -496,22 +498,43 @@ def unlock():
 
 @app.route("/api/debug")
 def api_debug():
-    db_status = "not configured"
-    db_error = None
-    if os.environ.get("SPREADSHEET_ID"):
-        try:
-            db = get_db()
-            db_status = "connected" if db else "init failed (check logs)"
-        except Exception as e:
-            db_error = str(e)
-            db_status = "error"
-    return jsonify({
+    # 비밀값은 노출하지 않고, Sheets 초기화 실패의 '원인'만 안전하게 반환하는 진단용.
+    info = {
         "spreadsheet_id_set": bool(os.environ.get("SPREADSHEET_ID")),
         "credentials_set": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON")),
         "openai_key_set": bool(os.environ.get("OPENAI_API_KEY")),
-        "db_status": db_status,
-        "db_error": db_error,
-    })
+        "access_gate_on": bool(ACCESS_CODE),
+    }
+
+    # 1) 자격증명 JSON 파싱 점검
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+    client_email = None
+    if creds_json:
+        try:
+            parsed = json.loads(creds_json)
+            info["creds_json_parseable"] = True
+            client_email = parsed.get("client_email")
+            info["client_email"] = client_email  # 시트 공유 대상 확인용(비밀 아님)
+            pk = parsed.get("private_key", "")
+            info["private_key_has_real_newlines"] = "\n" in pk
+            info["private_key_has_markers"] = pk.startswith("-----BEGIN") and pk.strip().endswith("PRIVATE KEY-----")
+        except Exception as e:
+            info["creds_json_parseable"] = False
+            info["creds_parse_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+
+    # 2) 실제 SheetsDB 초기화 시도 (메모이즈 무시하고 신선하게)
+    if os.environ.get("SPREADSHEET_ID"):
+        try:
+            from sheets_db import SheetsDB
+            SheetsDB(os.environ["SPREADSHEET_ID"])
+            info["sheets_init"] = "OK"
+        except Exception as e:
+            import traceback
+            info["sheets_init"] = "FAILED"
+            info["sheets_error_type"] = type(e).__name__
+            info["sheets_error"] = str(e)[:500]
+            info["sheets_trace_tail"] = traceback.format_exc()[-600:]
+    return jsonify(info)
 
 
 @app.route("/")
