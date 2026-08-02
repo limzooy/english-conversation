@@ -552,9 +552,23 @@
 
   const MONTH_KO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
+  // 서버리스 콜드스타트로 간헐적 5xx가 날 수 있어, 읽기 요청은 한 번 재시도한다.
+  async function fetchJSON(url, opts) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(url, opts);
+        if (res.ok) return await res.json();
+        if (res.status < 500) throw new Error('HTTP ' + res.status);
+      } catch (e) {
+        if (attempt === 1) throw e;
+      }
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    throw new Error('요청 실패: ' + url);
+  }
+
   async function loadActiveDates() {
-    const res = await fetch('/api/calendar');
-    const data = await res.json();
+    const data = await fetchJSON('/api/calendar');
     activeDates = new Set(data.dates);
     renderCalendar();
   }
@@ -685,14 +699,7 @@
     const [y, m, d] = todayStr.split('-');
     document.getElementById('dailyDate').textContent = `${y}.${m}.${d}`;
     try {
-      // 첫 호출은 GPT 생성이 필요해 느릴 수 있다. 실패하면 한 번 더 시도.
-      let res = await fetch('/api/daily-words');
-      if (!res.ok) {
-        await new Promise(r => setTimeout(r, 1500));
-        res = await fetch('/api/daily-words');
-      }
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      const data = await fetchJSON('/api/daily-words');
       const body = document.getElementById('dailyBody');
 
       const wordsHtml = data.words.map(w => `
@@ -725,8 +732,7 @@
 
   async function loadOpicToday() {
     try {
-      const res = await fetch('/api/opic-today');
-      const data = await res.json();
+      const data = await fetchJSON('/api/opic-today');
       const c = data.content;
       const pct = Math.round((data.completed_count / data.total) * 100);
 
@@ -767,8 +773,7 @@
 
   async function loadReviewToday() {
     try {
-      const res = await fetch('/api/review-today');
-      const data = await res.json();
+      const data = await fetchJSON('/api/review-today');
       if (!data.total) return;  // 복습할 것 없으면 카드 숨김 유지
       const c = data.counts;
       const parts = [];
@@ -783,8 +788,7 @@
 
   async function loadLevels() {
     try {
-      const res = await fetch('/api/level-list');
-      const levels = await res.json();
+      const levels = await fetchJSON('/api/level-list');
       if (!levels.length) return;
       document.getElementById('levelChips').innerHTML = levels.map(lv =>
         `<a href="/chat?mode=level&level=${lv.id}" class="level-chip">${lv.emoji} ${lv.title}</a>`

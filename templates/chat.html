@@ -1122,6 +1122,21 @@
   let allSpeakingCategories = [];
 
 
+  // 서버리스 콜드스타트로 간헐적 5xx가 날 수 있어, 읽기 요청은 한 번 재시도한다.
+  async function fetchJSON(url, opts) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(url, opts);
+        if (res.ok) return await res.json();
+        if (res.status < 500) throw new Error('HTTP ' + res.status);
+      } catch (e) {
+        if (attempt === 1) throw e;
+      }
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    throw new Error('요청 실패: ' + url);
+  }
+
   // ── 모드 선택 오버레이 ────────────────────────────────────
   async function loadScenarios() {
     const [scRes, reRes, spRes, lvRes] = await Promise.all([
@@ -1937,8 +1952,7 @@
   }
 
   async function loadTodayHistory() {
-    const res = await fetch('/api/today');
-    const data = await res.json();
+    const data = await fetchJSON('/api/today');
     if (data.conversations.length > 0) {
       const sidebarBody = document.getElementById('sidebarBody');
       sidebarBody.innerHTML = '';
@@ -1981,8 +1995,7 @@
     try {
       const params = new URLSearchParams({ mode: currentMode });
       if (currentScenario) params.set('scenario', currentScenario.id);
-      const res = await fetch('/api/greeting?' + params);
-      const data = await res.json();
+      const data = await fetchJSON('/api/greeting?' + params);
 
       if (currentMode === 'speaking') {
         addAiMessage({ response: data.response, has_correction: false });
@@ -2247,8 +2260,7 @@
   // ── 복습 모드 ─────────────────────────────────────────────
   async function loadReviewSession() {
     try {
-      const res = await fetch('/api/review-today');
-      const data = await res.json();
+      const data = await fetchJSON('/api/review-today');
       reviewState = { queue: data.items, index: 0, correct: 0 };
       document.getElementById('reviewBannerProgress').textContent = `0 / ${data.total}`;
 
