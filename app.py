@@ -117,8 +117,12 @@ SHOWN_WORDS_FILE = os.path.join(BASE_DIR, "shown_words.json")
 def load_shown_words() -> list:
     db = get_db()
     if db:
-        cached = db.get_cache("shown_words")
-        return json.loads(cached) if cached else []
+        try:
+            cached = db.get_cache("shown_words")
+            return json.loads(cached) if cached else []
+        except Exception as e:
+            app.logger.error(f"shown words read failed: {e}")
+            return []
     if os.path.exists(SHOWN_WORDS_FILE):
         with open(SHOWN_WORDS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -132,7 +136,11 @@ def save_shown_words(new_words: list):
     # 프롬프트 토큰 비용이 무한히 커지지 않도록 최근 300개만 유지
     combined = combined[-300:]
     if db:
-        db.set_cache("shown_words", json.dumps(combined, ensure_ascii=False))
+        try:
+            db.set_cache("shown_words", json.dumps(combined, ensure_ascii=False))
+        except Exception as e:
+            # 중복 방지용 부가 정보일 뿐이므로 실패해도 응답을 막지 않는다
+            app.logger.error(f"shown words save failed: {e}")
         return
     with open(SHOWN_WORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(combined, f, ensure_ascii=False)
@@ -142,14 +150,16 @@ def get_daily_words():
     """오늘 날짜의 비즈니스 단어/표현 반환 (하루 1회 생성 후 캐시, 중복 제외)"""
     today = datetime.date.today().isoformat()
 
-    # 캐시 확인
+    # 캐시 확인 — 캐시 시트를 한 번만 읽는다(예전엔 키마다 전체 읽기 = 2회).
+    # Sheets 읽기가 실패하더라도 500을 내지 말고 아래 생성/기본값 경로로 넘어간다.
     db = get_db()
     if db:
-        cached_date = db.get_cache("daily_words_date")
-        if cached_date == today:
-            cached_data = db.get_cache("daily_words_json")
-            if cached_data:
-                return json.loads(cached_data)
+        try:
+            cached = db.get_cache_many(["daily_words_date", "daily_words_json"])
+            if cached.get("daily_words_date") == today and cached.get("daily_words_json"):
+                return json.loads(cached["daily_words_json"])
+        except Exception as e:
+            app.logger.error(f"daily words cache read failed: {e}")
     elif os.path.exists(DAILY_WORDS_FILE):
         with open(DAILY_WORDS_FILE, "r", encoding="utf-8") as f:
             cached = json.load(f)
@@ -204,10 +214,13 @@ Respond ONLY in this JSON format:
     today_words = [w["word"] for w in data.get("words", [])]
     save_shown_words(today_words)
 
-    # 캐시 저장
+    # 캐시 저장 (실패해도 이번 응답은 그대로 반환)
     if db:
-        db.set_cache("daily_words_date", today)
-        db.set_cache("daily_words_json", json.dumps(data, ensure_ascii=False))
+        try:
+            db.set_cache("daily_words_date", today)
+            db.set_cache("daily_words_json", json.dumps(data, ensure_ascii=False))
+        except Exception as e:
+            app.logger.error(f"daily words cache save failed: {e}")
     else:
         with open(DAILY_WORDS_FILE, "w", encoding="utf-8") as f:
             json.dump({"date": today, "data": data}, f, ensure_ascii=False)
