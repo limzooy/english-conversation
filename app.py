@@ -263,6 +263,36 @@ def save_memo(date_str, memo_text):
         writer.writerows(rows)
 
 
+# ── 접근 코드 게이트 (선택) ────────────────────────────────────────────────────
+# ACCESS_CODE 환경변수가 설정된 경우에만 활성화됩니다. 미설정 시 기존과 동일하게
+# 누구나 접근 가능(무해). 공개 배포 시 OpenAI 크레딧 남용을 막기 위한 최소 장치.
+ACCESS_CODE = os.environ.get("ACCESS_CODE")
+
+_UNLOCK_PAGE = """<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>잠금</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+       display:flex;min-height:100vh;align-items:center;justify-content:center;
+       margin:0;background:#0f172a;color:#e2e8f0}
+  form{background:#1e293b;padding:32px;border-radius:16px;width:280px;text-align:center}
+  h1{font-size:18px;margin:0 0 16px}
+  input{width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #334155;
+        background:#0f172a;color:#e2e8f0;font-size:16px;margin-bottom:12px}
+  button{width:100%;padding:12px;border:0;border-radius:8px;background:#6366f1;color:#fff;
+         font-size:16px;cursor:pointer}
+  .err{color:#f87171;font-size:13px;margin-bottom:8px;min-height:16px}
+</style></head>
+<body><form method="post">
+  <h1>🔒 접근 코드를 입력하세요</h1>
+  <div class="err">{{ error }}</div>
+  <input type="password" name="code" autofocus autocomplete="current-password">
+  <button type="submit">입장</button>
+</form></body></html>"""
+
+
+@app.before_request
 def _require_access_code():
     if not ACCESS_CODE:
         return  # 게이트 비활성화
