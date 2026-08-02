@@ -642,6 +642,37 @@
     .training-complete-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
     .training-complete-card p { font-size: 14px; opacity: 0.9; }
 
+    /* ── 단계별 말하기 배너 ─────────────────────────────────── */
+    .level-banner {
+      display: none;
+      background: linear-gradient(135deg, #0f766e, #14b8a6);
+      color: white; padding: 10px 16px; font-size: 13px;
+      align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 8px;
+    }
+    .level-banner.visible { display: flex; }
+    .level-banner-title { font-weight: 800; font-size: 14px; }
+    .level-banner-progress {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .level-change-btn {
+      background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      color: #fff; padding: 3px 10px; border-radius: 6px;
+      font-size: 12px; cursor: pointer; flex-shrink: 0;
+    }
+    .level-change-btn:hover { background: rgba(255,255,255,0.35); }
+
+    /* 힌트를 강조한 프롬프트 카드 (단계별 말하기 전용) */
+    .korean-prompt-card.with-hint { background: #f0fdfa; border-color: #5eead4; }
+    .korean-prompt-card.with-hint .korean-prompt-label { color: #0f766e; }
+    .prompt-hint-box {
+      margin-top: 8px; background: #ccfbf1; border-radius: 8px;
+      padding: 8px 12px; font-size: 13px; color: #115e59; line-height: 1.5;
+    }
+    .prompt-hint-box strong { color: #0f766e; }
+
     /* ── 복습 배너 ─────────────────────────────────────────── */
     .review-banner {
       display: none;
@@ -902,6 +933,13 @@
             <div class="mode-item-desc">심화 주제로 유창함 키우기</div>
           </div>
         </div>
+        <div class="mode-item" id="cardLevel" onclick="selectMode('level')">
+          <span class="mode-item-emoji">🗣️</span>
+          <div class="mode-item-text">
+            <div class="mode-item-title">단계별 말하기</div>
+            <div class="mode-item-desc">한국어 → 영어 · 힌트 제공</div>
+          </div>
+        </div>
         <div class="mode-item" id="cardReview" onclick="selectMode('review')">
           <span class="mode-item-emoji">🔁</span>
           <div class="mode-item-text">
@@ -952,6 +990,10 @@
           <div class="scenario-section-title">카테고리 선택 (전체 또는 원하는 주제)</div>
           <div class="scenario-grid" id="speakingCatGrid"></div>
         </div>
+        <div class="scenario-section" id="levelSection">
+          <div class="scenario-section-title">단계 선택 (쉬운 단계부터 차근차근)</div>
+          <div class="scenario-grid" id="levelGrid"></div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -971,6 +1013,7 @@
       <button class="mode-toggle-btn" id="toggleBusiness" onclick="switchMode('business')">비즈니스</button>
       <button class="mode-toggle-btn" id="togglePhrase" onclick="switchMode('phrase')">표현 학습</button>
       <button class="mode-toggle-btn" id="toggleTraining" onclick="switchMode('training')">기초 훈련</button>
+      <button class="mode-toggle-btn" id="toggleLevel" onclick="switchMode('level')">🗣️ 단계별 말하기</button>
       <button class="mode-toggle-btn" id="toggleReview" onclick="switchMode('review')">🔁 복습</button>
       <button class="mode-toggle-btn" id="toggleOpic" onclick="switchMode('opic')">🎯 오픽 90일</button>
       <button class="mode-toggle-btn" id="toggleSpeaking" onclick="switchMode('speaking')">스피킹 드릴</button>
@@ -1004,6 +1047,13 @@
     <div class="scenario-banner-roles" id="bannerRoles"></div>
   </div>
   <button class="scenario-change-btn" onclick="showScenarioSelector()">시나리오 변경</button>
+</div>
+
+<!-- 단계별 말하기 배너 -->
+<div class="level-banner" id="levelBanner">
+  <span class="level-banner-title" id="levelBannerTitle">🗣️ 단계별 말하기</span>
+  <button class="level-change-btn" onclick="showLevelSelector()">단계 변경</button>
+  <span class="level-banner-progress" id="levelBannerProgress">0 / 0</span>
 </div>
 
 <!-- 복습 배너 -->
@@ -1044,6 +1094,7 @@
       <div class="korean-prompt-label" id="koreanPromptLabel">번역해보세요</div>
       <div class="korean-prompt-text" id="koreanPromptText"></div>
       <div class="korean-prompt-hint" id="koreanPromptHint"></div>
+      <div class="prompt-hint-box" id="promptHintBox" style="display:none;"></div>
     </div>
 
     <!-- 힌트 + 번역 바 -->
@@ -1134,6 +1185,14 @@
   // 복습 상태
   let reviewState = { queue: [], index: 0, correct: 0 };
 
+  // 단계별 말하기 상태
+  let levelState = {
+    level: null, levelTitle: '', levelEmoji: '',
+    completedIds: [], currentSentence: null,
+    correctCount: 0, totalDone: 0,
+  };
+  let allLevels = [];
+
   // 스피킹 드릴 상태
   let speakingState = {
     category: "전체",
@@ -1156,20 +1215,58 @@
 
   // ── 모드 선택 오버레이 ────────────────────────────────────
   async function loadScenarios() {
-    const [scRes, phRes, reRes, spRes] = await Promise.all([
+    const [scRes, phRes, reRes, spRes, lvRes] = await Promise.all([
       fetch('/api/business-scenarios'),
       fetch('/api/business-phrases'),
       fetch('/api/real-english-situations'),
       fetch('/api/speaking-categories'),
+      fetch('/api/level-list'),
     ]);
     allScenarios = await scRes.json();
     allPhraseCategories = await phRes.json();
     allRealEnglishSituations = await reRes.json();
     allSpeakingCategories = await spRes.json();
+    allLevels = await lvRes.json();
     renderScenarioGrid();
     renderPhraseCatGrid();
     renderRealEnglishGrid();
     renderSpeakingCatGrid();
+    renderLevelGrid();
+  }
+
+  function renderLevelGrid() {
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    allLevels.forEach(lv => {
+      const card = document.createElement('div');
+      card.className = 'scenario-card';
+      card.id = 'level_' + lv.id;
+      card.onclick = () => selectLevel(lv.id, lv.title, lv.emoji);
+      card.innerHTML = `
+        <div class="scenario-card-header">
+          <span class="scenario-card-emoji">${lv.emoji}</span>
+          <span class="scenario-card-title">${lv.title}</span>
+        </div>
+        <div class="scenario-card-desc">${lv.desc} · ${lv.count}문장</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function selectLevel(id, title, emoji) {
+    levelState.level = id;
+    levelState.levelTitle = title;
+    levelState.levelEmoji = emoji;
+    document.querySelectorAll('#levelGrid .scenario-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('level_' + id)?.classList.add('selected');
+    updateStartBtn();
+  }
+
+  function showLevelSelector() {
+    document.getElementById('overlay').classList.remove('hidden');
+    selectMode('level');
+    if (levelState.level) {
+      document.getElementById('level_' + levelState.level)?.classList.add('selected');
+    }
   }
 
   function renderRealEnglishGrid() {
@@ -1276,6 +1373,7 @@
   }
 
   const modeDescriptions = {
+    level: '한국어 문장을 보고 영어로 말하는 연습입니다. 초등 중학년부터 고등학교 수준까지 단계별로 올라가고, 일상생활·외국인 도와주기 실전 표현도 연습할 수 있어요. 각 문장마다 어떤 표현을 써야 하는지 힌트를 제공합니다.',
     review: '배운 것을 잊지 않도록 간격 반복(1·3·7·21일 주기)으로 복습합니다. 오픽 커리큘럼 단어 퀴즈, 회화에서 교정받은 문장 다시 말하기, 스피킹 드릴 오답 재도전으로 구성됩니다.',
     opic: '오픽 IM3~IH 목표 90일 커리큘럼입니다. 매일 실전 질문 1개 + 단어 5개 + 핵심 표현 2개를 학습하고, AI 면접관 Ava와 실전처럼 연습하세요. Phase 1(기초 묘사) → Phase 2(과거/비교/돌발) → Phase 3(롤플레이/의견/모의고사)로 성장합니다.',
     speaking: 'PDF 300문장 + 추가 200문장, 총 500개의 한국어 문장을 영어로 말하는 훈련입니다. 카테고리를 선택하거나 전체를 랜덤으로 연습하세요. AI가 유연하게 채점하고 더 자연스러운 표현을 알려드립니다.',
@@ -1292,7 +1390,7 @@
 
   function selectMode(mode) {
     selectedModeInModal = mode;
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review','level'].forEach(m => {
       const id = 'card' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       const el = document.getElementById(id);
       if (el) el.classList.toggle('selected', mode === m);
@@ -1301,6 +1399,7 @@
     document.getElementById('realEnglishSection').classList.toggle('visible', mode === 'real_english');
     document.getElementById('phraseCatSection').classList.remove('visible');
     document.getElementById('speakingCatSection').classList.toggle('visible', mode === 'speaking');
+    document.getElementById('levelSection').classList.toggle('visible', mode === 'level');
     const desc = document.getElementById('modeDetailDesc');
     if (desc) desc.textContent = modeDescriptions[mode] || '';
     updateStartBtn();
@@ -1351,6 +1450,14 @@
     } else if (selectedModeInModal === 'review') {
       btn.disabled = false;
       btn.textContent = '🔁 오늘의 복습 시작!';
+    } else if (selectedModeInModal === 'level') {
+      if (!levelState.level) {
+        btn.disabled = true;
+        btn.textContent = '단계를 선택해주세요';
+      } else {
+        btn.disabled = false;
+        btn.textContent = `🗣️ ${levelState.levelTitle} 말하기 시작!`;
+      }
     } else {
       btn.disabled = false;
       btn.textContent = '시작하기';
@@ -1376,7 +1483,7 @@
     updateScenarioBanner();
 
     // 토글 버튼 동기화
-    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review'].forEach(m => {
+    ['free','business','phrase','training','elem_low','elem_high','real_english','middle','high','speaking','opic','review','level'].forEach(m => {
       const id = 'toggle' + m.split('_').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join('');
       document.getElementById(id)?.classList.toggle('active', currentMode === m);
     });
@@ -1386,7 +1493,17 @@
     setHint('');
 
     // 모드별 상태 초기화
-    if (currentMode === 'review') {
+    if (currentMode === 'level') {
+      levelState = {
+        level: levelState.level,
+        levelTitle: levelState.levelTitle,
+        levelEmoji: levelState.levelEmoji,
+        completedIds: [], currentSentence: null,
+        correctCount: 0, totalDone: 0,
+      };
+      inputEl.disabled = false;
+      inputEl.placeholder = '한국어 문장을 영어로 말해보세요...';
+    } else if (currentMode === 'review') {
       reviewState = { queue: [], index: 0, correct: 0 };
       inputEl.disabled = false;
       inputEl.placeholder = '복습 문제에 답해보세요...';
@@ -1450,6 +1567,7 @@
     document.getElementById('opicBanner').classList.remove('visible');
     document.getElementById('speakingBanner').classList.remove('visible');
     document.getElementById('reviewBanner').classList.remove('visible');
+    document.getElementById('levelBanner').classList.remove('visible');
 
     if (currentMode === 'real_english' && currentScenario) {
       banner.classList.add('visible');
@@ -1474,6 +1592,11 @@
       document.getElementById('opicBanner').classList.add('visible');
     } else if (currentMode === 'review') {
       document.getElementById('reviewBanner').classList.add('visible');
+    } else if (currentMode === 'level') {
+      document.getElementById('levelBanner').classList.add('visible');
+      document.getElementById('levelBannerTitle').textContent =
+        `${levelState.levelEmoji} ${levelState.levelTitle}`;
+      document.getElementById('levelBannerProgress').textContent = '0 완료';
     }
   }
 
@@ -1520,17 +1643,28 @@
     document.getElementById('trainingProgressLabel').textContent = `${trainingState.sentencesDone} / 8`;
   }
 
-  function updateKoreanPromptCard(korean, hint, label) {
+  function updateKoreanPromptCard(korean, hint, label, exprHint) {
     const card = document.getElementById('koreanPromptCard');
     const textEl = document.getElementById('koreanPromptText');
     const hintEl = document.getElementById('koreanPromptHint');
+    const boxEl = document.getElementById('promptHintBox');
     document.getElementById('koreanPromptLabel').textContent = label || '번역해보세요';
     if (korean) {
       textEl.textContent = korean;
       hintEl.textContent = hint ? `힌트: ${hint}` : '';
+      if (exprHint) {
+        boxEl.innerHTML = `<strong>💡 이 표현을 써보세요:</strong> ${exprHint}`;
+        boxEl.style.display = 'block';
+        card.classList.add('with-hint');
+      } else {
+        boxEl.style.display = 'none';
+        card.classList.remove('with-hint');
+      }
       card.classList.add('visible');
     } else {
       card.classList.remove('visible');
+      boxEl.style.display = 'none';
+      card.classList.remove('with-hint');
     }
   }
 
@@ -1588,6 +1722,10 @@
     if (mode === 'review') {
       selectedModeInModal = 'review';
       startChat();
+      return;
+    }
+    if (mode === 'level') {
+      showLevelSelector();
       return;
     }
     if (mode === 'business') {
@@ -2043,10 +2181,13 @@
     if (!msg) return;
     if (currentMode === 'training' && trainingState.sessionComplete) return;
     if (currentMode === 'speaking' && speakingState.currentSentence === null) return;
+    if (currentMode === 'level' && levelState.currentSentence === null) return;
     inputEl.value = '';
     inputEl.style.height = 'auto';
     addMessage('user', msg);
-    if (currentMode === 'speaking') {
+    if (currentMode === 'level') {
+      await checkLevelAnswer(msg);
+    } else if (currentMode === 'speaking') {
       await checkSpeakingAnswer(msg);
     } else if (currentMode === 'review') {
       await checkReviewAnswer(msg);
@@ -2085,6 +2226,15 @@
   async function loadGreeting() {
     if (currentMode === 'review') {
       await loadReviewSession();
+      inputEl.focus();
+      return;
+    }
+    if (currentMode === 'level') {
+      addAiMessage({
+        response: `${levelState.levelEmoji} ${levelState.levelTitle} 단계를 시작합니다! 한국어 문장이 나오면 영어로 말해보세요. 아래 💡 힌트에 어떤 표현을 쓰면 좋을지 알려드릴게요.`,
+        has_correction: false,
+      });
+      await loadNextLevelSentence();
       inputEl.focus();
       return;
     }
@@ -2265,6 +2415,125 @@
     isWaiting = false;
     // 완료 상태이면 버튼을 다시 켜지 않음
     if (speakingState.currentSentence !== null) {
+      sendBtn.disabled = false;
+      document.getElementById('micBtn').disabled = false;
+    }
+    inputEl.focus();
+  }
+
+  // ── 단계별 말하기 ──────────────────────────────────────────
+  async function loadNextLevelSentence() {
+    try {
+      const res = await fetch('/api/level-next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: levelState.level,
+          exclude_ids: levelState.completedIds,
+          in_order: true,   // 쉬운 문장부터 순서대로
+        }),
+      });
+      const data = await res.json();
+      if (data.done) {
+        levelState.currentSentence = null;
+        updateKoreanPromptCard('', '');
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+          <div class="training-complete-card">
+            <div class="complete-emoji">🎉</div>
+            <h3>${levelState.levelTitle} 완주!</h3>
+            <p>${levelState.totalDone}문장 중 ${levelState.correctCount}개 정답!<br>
+            상단 "단계 변경"으로 다음 단계에 도전해보세요 💪</p>
+          </div></div>`;
+        messagesEl.appendChild(wrap);
+        scrollToBottom();
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        document.getElementById('micBtn').disabled = true;
+        inputEl.placeholder = '이 단계를 모두 완료했습니다!';
+        return;
+      }
+      levelState.currentSentence = data.sentence;
+      updateKoreanPromptCard(
+        data.sentence.korean,
+        `남은 문장: ${data.remaining}개`,
+        `영어로 말해보세요 — ${levelState.levelTitle}`,
+        data.sentence.hint);
+    } catch (e) {
+      addMessage('ai', '문장을 불러오지 못했습니다. 새로고침해주세요.');
+    }
+  }
+
+  async function checkLevelAnswer(userAnswer) {
+    const item = levelState.currentSentence;
+    if (!item || isWaiting) return;
+    isWaiting = true;
+    sendBtn.disabled = true;
+    document.getElementById('micBtn').disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch('/api/speaking-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_answer: userAnswer,
+          correct_answer: item.english,
+          korean: item.korean,
+        }),
+      });
+      const data = await res.json();
+      removeTyping();
+
+      if (data.error) {
+        addMessage('ai', '채점 중 오류가 발생했습니다.');
+      } else {
+        levelState.totalDone += 1;
+        const isCorrect = data.evaluation === 'correct';
+        const isPartial = data.evaluation === 'partial';
+        if (isCorrect) levelState.correctCount += 1;
+        levelState.completedIds.push(item.id);
+
+        // 오답은 복습 큐에 저장
+        if (data.evaluation === 'incorrect') {
+          fetch('/api/drill-mistake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentence: { id: item.id, korean: item.korean, english: item.english } }),
+          }).catch(() => {});
+        }
+
+        document.getElementById('levelBannerProgress').textContent =
+          `✅ ${levelState.correctCount} / ${levelState.totalDone} 완료`;
+
+        const evalClass = isCorrect ? '' : isPartial ? ' partial' : ' incorrect';
+        const evalLabel = isCorrect ? '✅ 정답!' : isPartial ? '🔶 거의 다 왔어요' : '❌ 다시 확인해요';
+        const altHtml = data.natural_alternatives?.length
+          ? `<div class="speaking-alt">💡 다른 표현: ${data.natural_alternatives.join(' / ')}</div>` : '';
+        // 정답이어도 모범 답안을 항상 보여줌 (표현 학습 목적)
+        const answerHtml = `<div class="speaking-correct-answer"><strong>모범 답안:</strong> ${item.english}</div>`;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'msg ai';
+        wrap.innerHTML = `<div class="avatar">🤖</div><div class="bubble-wrap">
+          <div class="speaking-feedback-card${evalClass}">
+            <div class="speaking-feedback-label">${evalLabel}</div>
+            <div>${data.feedback_kr || ''}</div>
+            ${answerHtml}${altHtml}
+          </div></div>`;
+        messagesEl.appendChild(wrap);
+        scrollToBottom();
+        playTTS(item.english);
+
+        await loadNextLevelSentence();
+      }
+    } catch (e) {
+      removeTyping();
+      addMessage('ai', '서버 연결에 실패했습니다.');
+    }
+    isWaiting = false;
+    if (levelState.currentSentence !== null) {
       sendBtn.disabled = false;
       document.getElementById('micBtn').disabled = false;
     }
@@ -2511,10 +2780,23 @@
     await loadScenarios();
     await loadTodayHistory();
     // URL에 mode 파라미터가 있으면 해당 모드 바로 시작 (예: /chat?mode=opic)
-    const urlMode = new URLSearchParams(location.search).get('mode');
+    const params = new URLSearchParams(location.search);
+    const urlMode = params.get('mode');
     if (urlMode === 'opic' || urlMode === 'review') {
       document.getElementById('overlay').classList.add('hidden');
       switchMode(urlMode);
+    } else if (urlMode === 'level') {
+      const lvId = params.get('level');
+      const lv = allLevels.find(l => l.id === lvId);
+      if (lv) {
+        // 단계가 지정돼 있으면 선택 화면 없이 바로 시작
+        selectLevel(lv.id, lv.title, lv.emoji);
+        selectedModeInModal = 'level';
+        document.getElementById('overlay').classList.add('hidden');
+        startChat();
+      } else {
+        showLevelSelector();
+      }
     }
     // 그 외에는 오버레이에서 사용자가 모드 선택 후 시작
   }

@@ -1171,6 +1171,37 @@ def api_review_result():
     return jsonify({"ok": True})
 
 
+# ── 단계별 말하기 (한→영, 힌트 제공) ──────────────────────────
+
+@app.route("/api/level-list")
+def api_level_list():
+    """단계 목록 + 문장 수"""
+    from level_sentences import LEVELS, LEVEL_SENTENCES
+    result = []
+    for lv in LEVELS:
+        count = sum(1 for s in LEVEL_SENTENCES if s["level"] == lv["id"])
+        result.append({**lv, "count": count})
+    return jsonify(result)
+
+
+@app.route("/api/level-next", methods=["POST"])
+def api_level_next():
+    """선택한 단계에서 아직 안 본 문장 하나 반환"""
+    import random
+    from level_sentences import LEVEL_SENTENCES
+    data = request.json
+    level = data.get("level", "")
+    exclude_ids = set(data.get("exclude_ids", []))
+
+    pool = [s for s in LEVEL_SENTENCES if s["level"] == level and s["id"] not in exclude_ids]
+    if not pool:
+        return jsonify({"done": True, "remaining": 0})
+
+    # 순서대로 진행 (쉬운 문장부터) — 단계 안에서는 난이도 순 배열
+    sentence = pool[0] if data.get("in_order") else random.choice(pool)
+    return jsonify({"sentence": sentence, "remaining": len(pool)})
+
+
 # ── 스피킹 드릴 ──────────────────────────────────────────────
 
 @app.route("/api/speaking-categories")
