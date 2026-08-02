@@ -295,187 +295,6 @@ Realism:
 - Escalate the scenario naturally: don't resolve everything immediately"""
 
 
-PHRASE_SYSTEM_PROMPT = """You are a business English expression coach using the SHADOWING method (따라 읽기 연습).
-
-You are teaching ONE specific expression. Follow this exact flow:
-1. Present the expression warmly: explain its Korean meaning, when/how to use it, and read both example sentences
-2. Ask the user to repeat the expression (say something like "Now please repeat after me: '[expression]'")
-3. When user responds with the expression or a sentence using it, evaluate and confirm
-4. Set phrase_confirmed=true when user has successfully repeated/used the expression
-
-ALWAYS respond in this EXACT JSON format:
-{{
-    "response": "Your coaching response in English",
-    "has_correction": false,
-    "original": "user's input if any",
-    "corrected": "",
-    "explanation": "",
-    "pronunciation_tip": "Korean pronunciation guide for key words in the expression",
-    "hint": "다음에 할 수 있는 말 힌트 (한국어, 짧게)",
-    "current_phrase": "the expression being taught",
-    "phrase_meaning": "Korean meaning",
-    "phrase_confirmed": false
-}}
-
-Teaching the expression: {phrase}
-Korean meaning: {meaning}
-When to use: {usage}
-Example 1: {example1}
-Example 2: {example2}
-
-RULES:
-- phrase_confirmed = true ONLY when the user actually types or says the expression "{phrase}" (or a sentence containing it). Do NOT set phrase_confirmed=true for generic replies like "ok", "I see", "yes", "got it", or anything that doesn't contain the expression itself.
-- phrase_confirmed = false for the very first message (your introduction) - ALWAYS
-- Keep responses concise and warm
-- When phrase_confirmed = true, congratulate briefly and tell them the next expression is coming"""
-
-
-OPIC_SYSTEM_PROMPT = """You are Ava, a friendly OPIc (Oral Proficiency Interview - computer) examiner and coach for a Korean learner targeting IM3~IH level.
-
-Today's session — Day {day} of a 90-day curriculum:
-- Topic: {topic} ({qtype})
-- Main question: {question}
-- Today's target vocabulary: {vocab}
-- Today's target expressions: {expressions}
-
-Your job each turn:
-1. React naturally to the learner's answer like a real OPIc interviewer (warm, encouraging)
-2. Evaluate their answer against OPIc criteria: fluency, sentence variety, detail, past/present tense accuracy, connectors
-3. If the answer is too short (1-2 sentences), push for more detail with a follow-up question ("Can you tell me more about...?")
-4. If they used today's target vocab/expressions, praise it specifically
-5. Give ONE concrete upgrade tip per turn in Korean (e.g., how to add detail, better connector, richer expression)
-6. After 2-3 good exchanges on the main question, you may ask ONE related follow-up question (OPIc combo style)
-
-ALWAYS respond in this EXACT JSON format:
-{{
-    "response": "Your natural interviewer response + follow-up question (2-4 sentences, English)",
-    "has_correction": true or false,
-    "original": "learner's sentence with an error (empty if none)",
-    "corrected": "corrected version (empty if none)",
-    "explanation": "Korean explanation of the correction (empty if none)",
-    "pronunciation_tip": "Korean pronunciation tip for a key word (can be empty)",
-    "hint": "다음 답변을 업그레이드할 팁 1개 (한국어, 구체적으로. 예: '과거시제로 어제 일을 덧붙여보세요')",
-    "opic_feedback": "현재 답변의 오픽 레벨 진단 + 칭찬 + 개선점 (한국어 2-3문장)"
-}}
-
-Rules:
-- Keep the conversation going — never end it yourself
-- Speak at a natural pace level: clear, not too complex
-- Corrections: only correct errors that would hurt their OPIc score; ignore trivial slips
-- Be specific in opic_feedback: mention what IM3/IH answers need (detail, connectors, tense variety)"""
-
-
-BUSINESS_PHRASES = [
-    {
-        "category": "meeting",
-        "title": "미팅 & 회의",
-        "emoji": "👔",
-        "phrases": [
-            {"phrase": "touch base", "meaning": "잠깐 연락하다 / 짧게 이야기 나누다",
-             "usage": "동료나 클라이언트와 가볍게 상황을 확인할 때",
-             "examples": ["Let's touch base next week about the project.", "Can we touch base before the meeting starts?"]},
-            {"phrase": "take this offline", "meaning": "나중에 따로 이야기하다",
-             "usage": "회의 중 특정 주제를 별도로 논의하자고 제안할 때",
-             "examples": ["That's a great point — let's take this offline.", "We should take this offline and discuss it one-on-one."]},
-            {"phrase": "circle back", "meaning": "나중에 다시 돌아오다 / 나중에 다시 이야기하다",
-             "usage": "지금 답을 못 주거나 나중에 재검토할 때",
-             "examples": ["I'll circle back to you once I have the data.", "Can we circle back to this agenda item later?"]},
-            {"phrase": "on the same page", "meaning": "같은 이해를 하고 있다 / 인식이 맞다",
-             "usage": "팀원들이 동일하게 이해하고 있는지 확인할 때",
-             "examples": ["I just want to make sure we're all on the same page.", "Are we on the same page regarding the deadline?"]},
-            {"phrase": "move the needle", "meaning": "의미 있는 변화를 만들다 / 진전을 이루다",
-             "usage": "결과나 성과에 실질적인 영향을 줄 때",
-             "examples": ["This strategy could really move the needle on our sales.", "We need ideas that will actually move the needle."]},
-        ]
-    },
-    {
-        "category": "negotiation",
-        "title": "협상 & 제안",
-        "emoji": "🤝",
-        "phrases": [
-            {"phrase": "ballpark figure", "meaning": "대략적인 수치 / 어림잡은 숫자",
-             "usage": "정확한 숫자 없이 대략적인 금액이나 수량을 말할 때",
-             "examples": ["Can you give me a ballpark figure for the budget?", "We're looking at a ballpark figure of $50,000."]},
-            {"phrase": "win-win situation", "meaning": "양측 모두에게 유리한 상황",
-             "usage": "협상에서 양쪽이 모두 이익을 얻는 결과를 강조할 때",
-             "examples": ["I think this is a win-win situation for both companies.", "Let's find a solution that's a win-win for everyone."]},
-            {"phrase": "give and take", "meaning": "서로 양보하다 / 주고받다",
-             "usage": "협상에서 서로 조금씩 양보하는 과정을 설명할 때",
-             "examples": ["Successful negotiations always involve some give and take.", "We need a bit of give and take to make this work."]},
-            {"phrase": "at your earliest convenience", "meaning": "가능한 한 빨리 / 시간이 날 때",
-             "usage": "상대에게 정중하게 빠른 답변이나 행동을 요청할 때",
-             "examples": ["Please review the contract at your earliest convenience.", "Get back to me at your earliest convenience."]},
-            {"phrase": "value proposition", "meaning": "가치 제안 / 차별화된 가치",
-             "usage": "제품/서비스가 고객에게 주는 핵심 혜택을 설명할 때",
-             "examples": ["What's your value proposition compared to competitors?", "Our value proposition is quality at a competitive price."]},
-        ]
-    },
-    {
-        "category": "email",
-        "title": "이메일 & 보고서",
-        "emoji": "📧",
-        "phrases": [
-            {"phrase": "as per our discussion", "meaning": "우리가 논의한 대로",
-             "usage": "이전 대화나 회의 내용을 이메일로 확인할 때",
-             "examples": ["As per our discussion, I'm attaching the revised proposal.", "As per our discussion yesterday, the deadline is Friday."]},
-            {"phrase": "please find attached", "meaning": "첨부 파일을 확인해주세요",
-             "usage": "이메일에 파일을 첨부할 때 사용하는 공식 표현",
-             "examples": ["Please find attached the report you requested.", "Please find attached the updated schedule."]},
-            {"phrase": "I wanted to follow up", "meaning": "~에 대해 확인하고 싶었습니다",
-             "usage": "이전 요청이나 논의 사항에 대해 답변을 기다릴 때",
-             "examples": ["I wanted to follow up on my email from last week.", "I wanted to follow up on the proposal we discussed."]},
-            {"phrase": "going forward", "meaning": "앞으로는 / 향후에는",
-             "usage": "미래의 행동 방침이나 변경사항을 안내할 때",
-             "examples": ["Going forward, please send reports every Monday.", "Going forward, all approvals must go through the manager."]},
-            {"phrase": "loop someone in", "meaning": "~를 대화에 포함시키다 / 정보를 공유하다",
-             "usage": "관련 있는 사람을 이메일이나 논의에 추가할 때",
-             "examples": ["Can you loop in the marketing team on this?", "I've looped in our legal team for their input."]},
-        ]
-    },
-    {
-        "category": "presentation",
-        "title": "발표 & 프레젠테이션",
-        "emoji": "📊",
-        "phrases": [
-            {"phrase": "to put it simply", "meaning": "간단히 말하자면",
-             "usage": "복잡한 내용을 청중이 이해하기 쉽게 설명할 때",
-             "examples": ["To put it simply, we need to cut costs by 20%.", "To put it simply, the project is behind schedule."]},
-            {"phrase": "the bottom line is", "meaning": "결론은 / 핵심은",
-             "usage": "발표나 논의의 핵심 요점을 강조할 때",
-             "examples": ["The bottom line is, we need more resources.", "The bottom line is that customer satisfaction has improved."]},
-            {"phrase": "take away", "meaning": "핵심 교훈 / 기억해야 할 포인트",
-             "usage": "발표에서 청중이 가져가야 할 핵심 메시지를 정리할 때",
-             "examples": ["The key takeaway from today is that consistency matters.", "What's your main takeaway from this presentation?"]},
-            {"phrase": "drill down into", "meaning": "더 깊이 파고들다 / 세부적으로 살펴보다",
-             "usage": "특정 항목을 더 자세히 분석하거나 설명할 때",
-             "examples": ["Let me drill down into the Q3 numbers.", "We need to drill down into the root cause of this issue."]},
-        ]
-    },
-    {
-        "category": "workplace",
-        "title": "일상 비즈니스",
-        "emoji": "💼",
-        "phrases": [
-            {"phrase": "bandwidth", "meaning": "여유 시간 / 처리 능력",
-             "usage": "업무를 처리할 시간이나 능력이 있는지 물어볼 때",
-             "examples": ["Do you have the bandwidth to take on this project?", "I don't have the bandwidth for another meeting this week."]},
-            {"phrase": "leverage", "meaning": "활용하다 / 최대한 이용하다",
-             "usage": "기존 자원이나 강점을 전략적으로 활용할 때",
-             "examples": ["We should leverage our existing customer base.", "Let's leverage our team's expertise for this project."]},
-            {"phrase": "heads up", "meaning": "미리 알림 / 사전 통보",
-             "usage": "상대방에게 미리 알려두는 친근한 표현",
-             "examples": ["Just a heads up — the client meeting is moved to 3pm.", "I wanted to give you a heads up about the new policy."]},
-            {"phrase": "push back", "meaning": "반대 의견을 내다 / 저항하다",
-             "usage": "제안이나 계획에 의문을 제기하거나 반대할 때",
-             "examples": ["The team pushed back on the aggressive timeline.", "Don't be afraid to push back if you disagree."]},
-            {"phrase": "actionable", "meaning": "실행 가능한 / 즉시 적용할 수 있는",
-             "usage": "구체적으로 실행에 옮길 수 있는 계획이나 피드백을 설명할 때",
-             "examples": ["We need actionable steps, not just ideas.", "Please give me actionable feedback on the draft."]},
-        ]
-    },
-]
-
-
 BUSINESS_SCENARIOS = [
     {
         "id": "meeting",
@@ -591,41 +410,8 @@ class AIHandler:
     def get_business_scenarios(self) -> list:
         return BUSINESS_SCENARIOS
 
-    def get_business_phrases(self) -> list:
-        return BUSINESS_PHRASES
-
-    def get_training_curriculum(self) -> list:
-        return TRAINING_CURRICULUM
-
-    def get_initial_greeting(self, past_history: list = None, mode: str = "free", scenario: dict = None, phrase_category: str = None, day_info: dict = None, sentences_done: int = 0, used_sentences: list = None, phrase_data: dict = None) -> dict:
-        if mode == "phrase" and phrase_data:
-            system = PHRASE_SYSTEM_PROMPT.format(
-                phrase=phrase_data["phrase"],
-                meaning=phrase_data["meaning"],
-                usage=phrase_data["usage"],
-                example1=phrase_data["examples"][0],
-                example2=phrase_data["examples"][1],
-            )
-            messages = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": f'Start teaching "{phrase_data["phrase"]}". Present it warmly with full explanation, then ask user to repeat it.'},
-            ]
-        elif mode == "training":
-            _day_info = day_info if day_info else TRAINING_CURRICULUM[0]
-            _used = used_sentences or []
-            used_str = "\n".join(f"- {s}" for s in _used) if _used else "(없음)"
-            system = TRAINING_SYSTEM_PROMPT.format(
-                day=_day_info["day"],
-                focus=_day_info["focus"],
-                pattern=_day_info["pattern"],
-                sentences_done=sentences_done,
-                used_sentences=used_str,
-            )
-            messages = [
-                {"role": "system", "content": system},
-                {"role": "user", "content": f'Start the training session. Evaluation: "start". Give a very brief 1-sentence welcome and immediately provide the first Korean sentence for Day {_day_info["day"]}: {_day_info["focus"]}.'},
-            ]
-        elif mode == "business" and scenario:
+    def get_initial_greeting(self, past_history: list = None, mode: str = "free", scenario: dict = None) -> dict:
+        if mode == "business" and scenario:
             system = BUSINESS_SYSTEM_PROMPT + f"\n\nYour role: {scenario['ai_role']}\nScenario context: {scenario['context']}"
             messages = [{"role": "system", "content": system}]
             if past_history:
@@ -705,9 +491,7 @@ Respond ONLY in this JSON format:
             )
             return self._parse_response(response.choices[0].message.content)
         except Exception:
-            if mode == "phrase":
-                fallback = "Hello! Let's practice some useful business expressions together. I'll teach you one phrase at a time!"
-            elif mode == "business" and scenario:
+            if mode == "business" and scenario:
                 fallback = scenario["opening"]
             elif mode == "real_english":
                 fallback = "Hey! Let's talk about how Americans really speak. What situation do you want to practice?"
@@ -719,9 +503,6 @@ Respond ONLY in this JSON format:
                 fallback = "Hey! I'm your English teacher. What's been on your mind lately?"
             elif mode == "high":
                 fallback = "Hello! I'm your English conversation partner. What topic would you like to explore today?"
-            elif mode == "training":
-                _day_info = day_info if day_info else TRAINING_CURRICULUM[0]
-                fallback = f"Welcome to Day {_day_info['day']} training! Let's get started."
             else:
                 fallback = "Hello! Ready to practice English?"
             return {
@@ -729,17 +510,10 @@ Respond ONLY in this JSON format:
                 "has_correction": False,
                 "original": "", "corrected": "", "explanation": "",
                 "pronunciation_tip": "",
-                "hint": "준비됐으면 \"I'm ready!\"라고 말해보세요." if mode == "phrase" else "",
-                "current_phrase": "", "phrase_meaning": "",
-                "evaluation": "start" if mode == "training" else "",
-                "feedback_kr": "",
-                "correct_answer": "",
-                "next_prompt": {"korean": "", "hint": ""},
-                "progress": {"current": 0, "total": 8},
-                "session_complete": False,
+                "hint": "",
             }
 
-    def chat(self, user_message: str, conversation_history: list, mode: str = "free", scenario: dict = None, phrase_category: str = None, phrase_data: dict = None, day_info: dict = None, sentences_done: int = 0, used_sentences: list = None, opic_day: dict = None) -> dict:
+    def chat(self, user_message: str, conversation_history: list, mode: str = "free", scenario: dict = None, opic_day: dict = None) -> dict:
         if mode == "opic" and opic_day:
             vocab_str = ", ".join(f"{v['word']} ({v['meaning']})" for v in opic_day["vocab"])
             expr_str = " / ".join(e["phrase"] for e in opic_day["expressions"])
@@ -751,28 +525,6 @@ Respond ONLY in this JSON format:
                 vocab=vocab_str,
                 expressions=expr_str,
             )
-        elif mode == "training":
-            _day_info = day_info if day_info else TRAINING_CURRICULUM[0]
-            _used = used_sentences or []
-            used_str = "\n".join(f"- {s}" for s in _used) if _used else "(없음)"
-            system = TRAINING_SYSTEM_PROMPT.format(
-                day=_day_info["day"],
-                focus=_day_info["focus"],
-                pattern=_day_info["pattern"],
-                sentences_done=sentences_done,
-                used_sentences=used_str,
-            )
-        elif mode == "phrase":
-            if phrase_data:
-                system = PHRASE_SYSTEM_PROMPT.format(
-                    phrase=phrase_data["phrase"],
-                    meaning=phrase_data["meaning"],
-                    usage=phrase_data["usage"],
-                    example1=phrase_data["examples"][0],
-                    example2=phrase_data["examples"][1],
-                )
-            else:
-                system = PHRASE_SYSTEM_PROMPT.format(phrase="", meaning="", usage="", example1="", example2="")
         elif mode == "business" and scenario:
             system = BUSINESS_SYSTEM_PROMPT + f"\n\nYour role: {scenario['ai_role']}\nScenario context: {scenario['context']}"
         elif mode == "real_english":
@@ -791,8 +543,7 @@ Respond ONLY in this JSON format:
             system = SYSTEM_PROMPT
 
         messages = [{"role": "system", "content": system}]
-        # phrase 모드는 이전 대화 오염 방지를 위해 history 사용 안 함
-        history_limit = 0 if mode == "phrase" else 20
+        history_limit = 20
         messages.extend(conversation_history[-history_limit:])
         messages.append({"role": "user", "content": user_message})
 
@@ -816,15 +567,6 @@ Respond ONLY in this JSON format:
                 "explanation": data.get("explanation", ""),
                 "pronunciation_tip": data.get("pronunciation_tip", ""),
                 "hint": data.get("hint", ""),
-                "current_phrase": data.get("current_phrase", ""),
-                "phrase_meaning": data.get("phrase_meaning", ""),
-                "evaluation": data.get("evaluation", ""),
-                "feedback_kr": data.get("feedback_kr", ""),
-                "correct_answer": data.get("correct_answer", ""),
-                "next_prompt": data.get("next_prompt", {"korean": "", "hint": ""}),
-                "progress": data.get("progress", {"current": 0, "total": 8}),
-                "session_complete": data.get("session_complete", False),
-                "phrase_confirmed": bool(data.get("phrase_confirmed", False)),
                 "opic_feedback": data.get("opic_feedback", ""),
                 "better_expression": data.get("better_expression", ""),
                 "better_explanation": data.get("better_explanation", ""),
@@ -837,81 +579,3 @@ Respond ONLY in this JSON format:
                 "original": "", "corrected": "", "explanation": "",
                 "pronunciation_tip": "", "hint": "",
             }
-
-
-TRAINING_CURRICULUM = [
-    # Week 1: 기본 현재형
-    {"day": 1, "focus": "I am + 형용사/명사", "pattern": "I am [adjective/noun]", "level": 1},
-    {"day": 2, "focus": "I have + 명사", "pattern": "I have [noun]", "level": 1},
-    {"day": 3, "focus": "I like / I love / I hate", "pattern": "I like/love/hate [noun/verb-ing]", "level": 1},
-    {"day": 4, "focus": "I want + 명사/to 동사", "pattern": "I want [noun] / I want to [verb]", "level": 1},
-    {"day": 5, "focus": "I need + 명사/to 동사", "pattern": "I need [noun] / I need to [verb]", "level": 1},
-    {"day": 6, "focus": "I go / I work / I live", "pattern": "I [simple verb] [place/time]", "level": 1},
-    {"day": 7, "focus": "Week 1 복습", "pattern": "Mix of Week 1 patterns", "level": 1},
-    # Week 2: 의문문 & 부정문
-    {"day": 8, "focus": "Do you...? / Does she...?", "pattern": "Do/Does [subject] [verb]?", "level": 2},
-    {"day": 9, "focus": "I don't / I doesn't", "pattern": "I don't [verb]", "level": 2},
-    {"day": 10, "focus": "What / Where / When is...?", "pattern": "What/Where/When is [noun]?", "level": 2},
-    {"day": 11, "focus": "Can you...? / I can...", "pattern": "Can [subject] [verb]?", "level": 2},
-    {"day": 12, "focus": "There is / There are", "pattern": "There is/are [noun]", "level": 2},
-    {"day": 13, "focus": "It is + 형용사 + to 동사", "pattern": "It is [adj] to [verb]", "level": 2},
-    {"day": 14, "focus": "Week 2 복습", "pattern": "Mix of Week 2 patterns", "level": 2},
-    # Week 3: 과거형
-    {"day": 15, "focus": "I was / I were", "pattern": "I was [adjective/noun]", "level": 3},
-    {"day": 16, "focus": "I went / I had / I did", "pattern": "I [past verb] [object]", "level": 3},
-    {"day": 17, "focus": "Did you...? / I didn't...", "pattern": "Did [subject] [verb]? / I didn't [verb]", "level": 3},
-    {"day": 18, "focus": "I was -ing (과거 진행)", "pattern": "I was [verb]-ing", "level": 3},
-    {"day": 19, "focus": "When I..., I... (시간 접속사)", "pattern": "When I [past], I [past]", "level": 3},
-    {"day": 20, "focus": "I've been / I've done (현재완료)", "pattern": "I have [past participle]", "level": 3},
-    {"day": 21, "focus": "Week 3 복습", "pattern": "Mix of Week 3 patterns", "level": 3},
-    # Week 4: 의견 & 감정 표현
-    {"day": 22, "focus": "I think / I believe", "pattern": "I think/believe that [clause]", "level": 4},
-    {"day": 23, "focus": "I would like to / I'd like", "pattern": "I would like to [verb]", "level": 4},
-    {"day": 24, "focus": "Could you...? / Would you mind...?", "pattern": "Could you / Would you mind [verb]?", "level": 4},
-    {"day": 25, "focus": "I'm planning to / I'm going to", "pattern": "I'm planning/going to [verb]", "level": 4},
-    {"day": 26, "focus": "I'm not sure if / I wonder if", "pattern": "I'm not sure if / I wonder if [clause]", "level": 4},
-    {"day": 27, "focus": "If + 조건절", "pattern": "If I [verb], I will [verb]", "level": 4},
-    {"day": 28, "focus": "비즈니스: Regarding / As for", "pattern": "Regarding/As for [topic], [statement]", "level": 4},
-    {"day": 29, "focus": "비즈니스: I'd like to propose / I suggest", "pattern": "I'd like to propose / I suggest [noun/verb-ing]", "level": 4},
-    {"day": 30, "focus": "최종 복습 & 종합", "pattern": "All patterns combined", "level": 5},
-]
-
-
-TRAINING_SYSTEM_PROMPT = """You are a Korean-to-English sentence training coach for a Korean beginner who can read English but cannot produce sentences yet.
-Your mission: build their sentence production ability through daily drilling.
-
-ALWAYS respond in this EXACT JSON format, no exceptions:
-{{
-    "response": "brief encouraging feedback in English (1 sentence)",
-    "evaluation": "correct" OR "partial" OR "incorrect" OR "start",
-    "feedback_kr": "평가 및 설명 한국어 2-3문장. 왜 맞는지/틀린지 명확히 설명.",
-    "correct_answer": "The correct English translation of the Korean sentence",
-    "next_prompt": {{
-        "korean": "다음에 번역할 한국어 문장 (마지막 문장이면 빈 문자열)",
-        "hint": "패턴 힌트 (예: I am + 형용사)"
-    }},
-    "progress": {{"current": 0, "total": 8}},
-    "session_complete": false,
-    "has_correction": true OR false,
-    "original": "user's input exactly",
-    "corrected": "corrected English (empty string if correct)",
-    "explanation": "correction explanation in Korean (empty string if correct)"
-}}
-
-Today's focus: Day {day} - {focus}
-Pattern: {pattern}
-Sentences completed this session: {sentences_done} / 8
-
-ALREADY MASTERED - DO NOT USE THESE SENTENCES AGAIN:
-{used_sentences}
-
-RULES:
-1. Generate Korean sentences that naturally require today's pattern to translate
-2. NEVER repeat any sentence from the "ALREADY MASTERED" list above - create completely different sentences
-3. Start simple, gradually increase complexity across 8 sentences
-4. Keep sentences practical: work, daily life, feelings, opinions
-5. evaluation must be "correct" if the meaning is right (minor errors ok), "partial" if structure is right but has errors, "incorrect" if pattern is wrong
-6. feedback_kr: always explain WHY, reference the pattern
-7. When sentences_done >= 7 (user just answered the 8th), set session_complete=true and next_prompt.korean=""
-8. On "start" (first message), give the very first Korean sentence with a warm brief intro
-9. Be very encouraging - this is a beginner!"""

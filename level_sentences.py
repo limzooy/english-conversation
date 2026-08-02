@@ -255,6 +255,31 @@ LEVEL_SENTENCES = [
     {"id": 1238, "level": "helper", "korean": "다른 도움이 필요하시면 말씀하세요.", "english": "Let me know if you need anything else.", "hint": "Let me know if ~ / anything else = 다른 것"},
     {"id": 1239, "level": "helper", "korean": "즐거운 여행 되세요!", "english": "Enjoy your trip!", "hint": "Enjoy your + 명사"},
     {"id": 1240, "level": "helper", "korean": "조심히 가세요!", "english": "Take care!", "hint": "Take care! (헤어질 때 인사)"},
+    # ═══════════ 비즈니스 표현 — 실무 필수 표현 ═══════════
+    {"id": 1241, "level": "business", "korean": "다음 주에 프로젝트에 대해 짧게 얘기 나눠요.", "english": "Let's touch base next week about the project.", "hint": "touch base = 잠깐 연락해 상황을 확인하다"},
+    {"id": 1242, "level": "business", "korean": "좋은 지적이네요 — 그건 따로 이야기하죠.", "english": "That's a great point — let's take this offline.", "hint": "take this offline = (회의 중) 나중에 따로 논의하다"},
+    {"id": 1243, "level": "business", "korean": "데이터를 확인하고 나서 다시 연락드릴게요.", "english": "I'll circle back to you once I have the data.", "hint": "circle back = 나중에 다시 이야기하다"},
+    {"id": 1244, "level": "business", "korean": "우리 모두 같은 이해를 하고 있는지 확인하고 싶어요.", "english": "I just want to make sure we're all on the same page.", "hint": "on the same page = 인식이 일치하다"},
+    {"id": 1245, "level": "business", "korean": "이 전략은 우리 매출에 실질적인 변화를 만들 수 있어요.", "english": "This strategy could really move the needle on our sales.", "hint": "move the needle = 의미 있는 진전을 만들다"},
+    {"id": 1246, "level": "business", "korean": "예산에 대해 대략적인 수치를 알려주실 수 있나요?", "english": "Can you give me a ballpark figure for the budget?", "hint": "ballpark figure = 어림잡은 대략적 수치"},
+    {"id": 1247, "level": "business", "korean": "이건 두 회사 모두에게 유리한 상황인 것 같아요.", "english": "I think this is a win-win situation for both companies.", "hint": "win-win situation = 양측 모두 이득인 상황"},
+    {"id": 1248, "level": "business", "korean": "성공적인 협상에는 항상 서로 양보가 필요해요.", "english": "Successful negotiations always involve some give and take.", "hint": "give and take = 서로 주고받는 양보"},
+    {"id": 1249, "level": "business", "korean": "가능한 한 빨리 계약서를 검토해 주세요.", "english": "Please review the contract at your earliest convenience.", "hint": "at your earliest convenience = 가능한 한 빨리 (정중한 표현)"},
+    {"id": 1250, "level": "business", "korean": "경쟁사와 비교해 귀사의 차별화된 가치는 무엇인가요?", "english": "What's your value proposition compared to competitors?", "hint": "value proposition = 차별화된 가치 제안"},
+    {"id": 1251, "level": "business", "korean": "논의한 대로 수정된 제안서를 첨부합니다.", "english": "As per our discussion, I'm attaching the revised proposal.", "hint": "as per our discussion = 우리가 논의한 대로"},
+    {"id": 1252, "level": "business", "korean": "요청하신 보고서를 첨부하오니 확인 부탁드립니다.", "english": "Please find attached the report you requested.", "hint": "please find attached = 첨부 파일을 확인해주세요 (이메일 공식 표현)"},
+    {"id": 1253, "level": "business", "korean": "지난주에 보낸 이메일에 대해 확인차 연락드렸습니다.", "english": "I wanted to follow up on my email from last week.", "hint": "I wanted to follow up on ~ = ~에 대해 확인차 연락드립니다"},
+    {"id": 1254, "level": "business", "korean": "앞으로는 매주 월요일에 보고서를 보내주세요.", "english": "Going forward, please send reports every Monday.", "hint": "going forward = 앞으로는, 향후에는"},
+    {"id": 1255, "level": "business", "korean": "이 건에 마케팅팀도 포함시켜 줄 수 있나요?", "english": "Can you loop in the marketing team on this?", "hint": "loop someone in = ~를 논의에 포함시키다"},
+    {"id": 1256, "level": "business", "korean": "간단히 말하자면, 비용을 20% 줄여야 합니다.", "english": "To put it simply, we need to cut costs by 20%.", "hint": "to put it simply = 간단히 말하자면"},
+    {"id": 1257, "level": "business", "korean": "결론은, 자원이 더 필요하다는 겁니다.", "english": "The bottom line is, we need more resources.", "hint": "the bottom line is = 결론은, 핵심은"},
+    {"id": 1258, "level": "business", "korean": "오늘의 핵심 요점은 꾸준함이 중요하다는 것입니다.", "english": "The key takeaway from today is that consistency matters.", "hint": "takeaway = 핵심 요점, 기억해야 할 포인트"},
+    {"id": 1259, "level": "business", "korean": "3분기 수치를 더 자세히 살펴보겠습니다.", "english": "Let me drill down into the Q3 numbers.", "hint": "drill down into = 더 깊이 파고들어 분석하다"},
+    {"id": 1260, "level": "business", "korean": "이 프로젝트를 맡을 여유가 있으신가요?", "english": "Do you have the bandwidth to take on this project?", "hint": "bandwidth = 처리할 여유 (시간·역량)"},
+    {"id": 1261, "level": "business", "korean": "기존 고객층을 적극 활용해야 합니다.", "english": "We should leverage our existing customer base.", "hint": "leverage = (자원을) 전략적으로 활용하다"},
+    {"id": 1262, "level": "business", "korean": "미리 알려드리는데, 클라이언트 미팅이 3시로 옮겨졌어요.", "english": "Just a heads up — the client meeting is moved to 3pm.", "hint": "heads up = 미리 알림, 사전 통보"},
+    {"id": 1263, "level": "business", "korean": "팀에서 무리한 일정에 반대 의견을 냈어요.", "english": "The team pushed back on the aggressive timeline.", "hint": "push back on ~ = ~에 반대 의견을 제기하다"},
+    {"id": 1264, "level": "business", "korean": "아이디어만이 아니라 실행 가능한 계획이 필요합니다.", "english": "We need actionable steps, not just ideas.", "hint": "actionable = 바로 실행에 옮길 수 있는"},
 ]
 
 
@@ -265,4 +290,5 @@ LEVELS = [
     {"id": "high",      "title": "고등학교",        "emoji": "🎓", "desc": "가정법·관계사·추상 표현"},
     {"id": "daily",     "title": "일상생활",        "emoji": "🏠", "desc": "실생활에서 자주 쓰는 말"},
     {"id": "helper",    "title": "외국인 도와주기", "emoji": "🤝", "desc": "길 안내·주문 도움·관광 안내"},
+    {"id": "business",  "title": "비즈니스 표현",   "emoji": "💼", "desc": "회의·이메일·협상 실무 표현"},
 ]
