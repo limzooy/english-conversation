@@ -685,7 +685,13 @@
     const [y, m, d] = todayStr.split('-');
     document.getElementById('dailyDate').textContent = `${y}.${m}.${d}`;
     try {
-      const res = await fetch('/api/daily-words');
+      // 첫 호출은 GPT 생성이 필요해 느릴 수 있다. 실패하면 한 번 더 시도.
+      let res = await fetch('/api/daily-words');
+      if (!res.ok) {
+        await new Promise(r => setTimeout(r, 1500));
+        res = await fetch('/api/daily-words');
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       const body = document.getElementById('dailyBody');
 
@@ -787,11 +793,13 @@
     } catch (e) {}
   }
 
-  loadActiveDates();
-  loadDailyWords();
-  loadOpicToday();
-  loadReviewToday();
-  loadLevels();
+  // 순차 로딩: 동시에 쏘면 서버리스 콜드스타트가 한꺼번에 일어나 일부 요청이 실패한다.
+  // 중요한 카드부터 하나씩 채운다.
+  (async () => {
+    for (const load of [loadOpicToday, loadActiveDates, loadLevels, loadReviewToday, loadDailyWords]) {
+      try { await load(); } catch (e) { /* 개별 실패가 나머지를 막지 않도록 */ }
+    }
+  })();
 </script>
 </body>
 </html>

@@ -10,17 +10,13 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 SHEET_CONV      = "대화기록"
 SHEET_MEMO      = "메모"
-SHEET_TRAIN     = "훈련진행"
-SHEET_SENTENCES = "훈련문장"
-SHEET_PHRASES   = "표현완료"
 SHEET_CACHE     = "캐시"
 
+# 현재 앱이 사용하는 시트만 관리한다. 훈련진행/훈련문장/표현완료는 해당 모드가
+# 제거되어 더 이상 생성·검증하지 않는다(기존 데이터는 스프레드시트에 그대로 남음).
 ALL_SHEETS = {
     SHEET_CONV:      ["날짜/시간", "세션 ID", "내 영어 문장", "수정된 문장", "수정 필요", "수정 설명", "AI 응답", "발음 팁"],
     SHEET_MEMO:      ["날짜", "메모"],
-    SHEET_TRAIN:     ["날짜", "요일번호", "완료문장수", "정답수"],
-    SHEET_SENTENCES: ["요일번호", "한국어문장", "평가결과"],
-    SHEET_PHRASES:   ["표현", "카테고리", "완료날짜"],
     SHEET_CACHE:     ["키", "값"],
 }
 
@@ -37,16 +33,25 @@ def _build_service():
 
 
 class SheetsDB:
+    # 스키마 검증(시트 생성 + 헤더 확인)은 Google API 왕복이 2~3회 필요해 콜드스타트를
+    # 크게 느리게 만든다. 읽기에는 필요 없으므로 '첫 쓰기 직전'에 프로세스당 한 번만 수행한다.
+    _schema_ready = False
+
     def __init__(self, spreadsheet_id: str):
         self.spreadsheet_id = spreadsheet_id
         self._svc = _build_service()
         self._sheet = self._svc.spreadsheets()
-        # 헤더 보정은 best-effort: 시트가 이미 존재하면 검증이 실패(타임아웃 등)해도
-        # 읽기/쓰기는 가능하므로 초기화 전체를 막지 않는다.
+
+    def _ensure_ready(self):
+        """쓰기 전에 시트/헤더 존재를 보장한다(프로세스당 1회, best-effort)."""
+        if SheetsDB._schema_ready:
+            return
+        # 플래그를 먼저 세워 _ensure_sheets 내부의 _append 재진입을 막는다.
+        SheetsDB._schema_ready = True
         try:
             self._ensure_sheets()
         except Exception:
-            pass
+            pass  # 시트가 이미 있으면 검증 실패해도 읽기/쓰기는 가능
 
     def _ensure_sheets(self):
         meta = self._sheet.get(spreadsheetId=self.spreadsheet_id).execute()
@@ -72,6 +77,7 @@ class SheetsDB:
                 self._append(name, ALL_SHEETS[name])
 
     def _append(self, sheet: str, row: list):
+        self._ensure_ready()
         self._sheet.values().append(
             spreadsheetId=self.spreadsheet_id,
             range=f"'{sheet}'!A1",
@@ -106,6 +112,7 @@ class SheetsDB:
         return -1
 
     def _update_cell_range(self, sheet: str, range_a1: str, values: list):
+        self._ensure_ready()
         self._sheet.values().update(
             spreadsheetId=self.spreadsheet_id,
             range=f"'{sheet}'!{range_a1}",
@@ -164,51 +171,7 @@ class SheetsDB:
         else:
             self._append(SHEET_MEMO, [date_str, memo_text])
 
-    # ── Training Progress ───────────────────────────────────────────────
-
-    def get_training_rows(self) -> list:
-        return self._read_all(SHEET_TRAIN)
-
-    def update_training_progress(self, date_str: str, day_number: int,
-                                 sentences_done: int, correct_count: int):
-        row_idx = self._find_row_index(SHEET_TRAIN, 0, date_str)
-        if row_idx >= 0:
-            self._update_cell_range(
-                SHEET_TRAIN, f"A{row_idx}:D{row_idx}",
-                [date_str, day_number, sentences_done, correct_count],
-            )
-        else:
-            self._append(SHEET_TRAIN, [date_str, day_number, sentences_done, correct_count])
-
-    # ── Training Sentences ──────────────────────────────────────────────
-
-    def load_correct_sentences(self, day_number: int) -> list:
-        rows = self._read_all(SHEET_SENTENCES)
-        return [
-            r["한국어문장"] for r in rows
-            if str(r.get("요일번호", "")) == str(day_number)
-            and r.get("평가결과") == "correct"
-        ]
-
-    def save_sentence_result(self, day_number: int, korean_sentence: str, evaluation: str):
-        if not korean_sentence:
-            return
-        if evaluation == "correct" and korean_sentence in self.load_correct_sentences(day_number):
-            return
-        self._append(SHEET_SENTENCES, [day_number, korean_sentence, evaluation])
-
-    # ── Phrase Progress ─────────────────────────────────────────────────
-
-    def load_completed_phrases(self) -> list:
-        rows = self._read_all(SHEET_PHRASES)
-        return [r["표현"] for r in rows if r.get("표현")]
-
-    def save_phrase_complete(self, phrase: str, category: str):
-        if phrase in self.load_completed_phrases():
-            return
-        self._append(SHEET_PHRASES, [phrase, category, datetime.date.today().isoformat()])
-
-    # ── Cache (daily words / shown words) ────────────────────────────────
+    # ── Cache ─────────────────────────────────────────────────────────
 
     def get_cache(self, key: str):
         rows = self._read_all(SHEET_CACHE)
