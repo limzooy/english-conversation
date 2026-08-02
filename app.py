@@ -14,7 +14,6 @@ from flask import (
     redirect, render_template_string,
 )
 from dotenv import load_dotenv
-from openai import OpenAI
 
 load_dotenv()
 
@@ -41,8 +40,8 @@ MEMO_CSV = os.path.join(BASE_DIR, "memos.csv")
 CONV_HEADERS = ["날짜/시간", "세션 ID", "내 영어 문장", "수정된 문장", "수정 필요", "수정 설명", "AI 응답", "발음 팁"]
 MEMO_HEADERS = ["날짜", "메모"]
 
-# 원본 OpenAI 클라이언트. 파일 하단에서 일일 비용 가드로 감싼다(client 재할당).
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI 클라이언트는 지연 생성한다(아래 _LazyClient). openai 패키지 임포트는
+# 콜드스타트 비용이 커서, AI를 쓰지 않는 엔드포인트는 아예 로드하지 않게 한다.
 
 # 하루 API 비용 상한 (USD). 환경변수 DAILY_BUDGET_USD 로 조정 가능.
 DAILY_BUDGET_USD = float(os.environ.get("DAILY_BUDGET_USD", "1.0"))
@@ -77,6 +76,21 @@ def get_conversations_for_date(date_str):
     except FileNotFoundError:
         pass
     return rows
+
+
+def get_recent_conversations(days: int) -> list:
+    """최근 days 일치 대화를 한 번의 읽기로 가져온다(최신순)."""
+    since = (datetime.date.today() - datetime.timedelta(days=days - 1)).isoformat()
+    db = get_db()
+    if db:
+        return db.get_conversations_since(since)
+    rows = []
+    try:
+        with open(CONVERSATION_CSV, "r", encoding="utf-8-sig") as f:
+            rows = [r for r in csv.DictReader(f) if r["날짜/시간"][:10] >= since]
+    except FileNotFoundError:
+        pass
+    return sorted(rows, key=lambda r: r.get("날짜/시간", ""), reverse=True)
 
 
 def get_dates_with_conversations():
@@ -414,18 +428,25 @@ def api_today():
     return jsonify({"conversations": rows, "date": today})
 
 
+def _static_json(payload, hours: int = 6):
+    """내용이 바뀌지 않는 목록 응답. 브라우저/CDN이 캐시하게 해 함수 호출 자체를 줄인다."""
+    resp = jsonify(payload)
+    resp.headers["Cache-Control"] = f"public, max-age={hours*3600}, s-maxage=86400"
+    return resp
+
+
 @app.route("/api/business-scenarios")
 def api_business_scenarios():
     from ai_handler import AIHandler
     ai = AIHandler(client)
-    return jsonify(ai.get_business_scenarios())
+    return _static_json(ai.get_business_scenarios())
 
 
 @app.route("/api/real-english-situations")
 def api_real_english_situations():
     from ai_handler import AIHandler
     ai = AIHandler(client)
-    return jsonify(ai.get_real_english_situations())
+    return _static_json(ai.get_real_english_situations())
 
 
 @app.route("/api/translate", methods=["POST"])
@@ -617,13 +638,17 @@ Respond in this EXACT JSON format:
 
 OPIC_PROGRESS_JSON = os.path.join(BASE_DIR, "opic_progress.json")
 
-def get_opic_progress():
-    """{'day': 현재 학습일, 'completed_days': [...], 'last_completed': 'YYYY-MM-DD'}"""
+def get_opic_progress(raw=None):
+    """{'day': 현재 학습일, 'completed_days': [...], 'last_completed': 'YYYY-MM-DD'}
+
+    raw 를 주면 캐시 시트를 다시 읽지 않는다(호출부에서 이미 읽어온 경우).
+    """
     default = {"day": 1, "completed_days": [], "last_completed": ""}
     db = get_db()
     if db:
         try:
-            raw = db.get_cache("opic_progress")
+            if raw is None:
+                raw = db.get_cache("opic_progress")
             if raw:
                 return {**default, **json.loads(raw)}
         except Exception as e:
@@ -651,6 +676,80 @@ def save_opic_progress(progress):
             json.dump(progress, f, ensure_ascii=False)
     except OSError:
         pass
+
+
+@app.route("/api/home")
+def api_home():
+    """홈 화면이 필요한 데이터를 한 번에 반환한다.
+
+    예전에는 홈에서 5개 엔드포인트를 각각 호출해 서버리스 콜드스타트가 동시에
+    여러 번 일어났다. 느리고 실패 위험이 큰 오늘의 단어(첫 호출 시 GPT 생성)만
+    분리해 두고, 나머지는 이 요청 하나로 처리한다.
+    """
+    from opic_curriculum import OPIC_CURRICULUM, TOTAL_DAYS, PHASE_INFO
+    from level_sentences import LEVELS, LEVEL_SENTENCES
+
+    out = {}
+
+    # 캐시 시트 1회 읽기로 오픽 진행률 + 드릴 오답을 함께 확보
+    db = get_db()
+    cached = {}
+    if db:
+        try:
+            cached = db.get_cache_many(["opic_progress", "drill_mistakes"])
+        except Exception as e:
+            app.logger.error(f"home cache read failed: {e}")
+
+    # 오픽 오늘의 커리큘럼
+    progress = get_opic_progress(raw=cached.get("opic_progress"))
+    day = min(progress["day"], TOTAL_DAYS)
+    content = OPIC_CURRICULUM[day - 1]
+    out["opic"] = {
+        "day": day,
+        "total": TOTAL_DAYS,
+        "completed_count": len(progress["completed_days"]),
+        "completed_today": progress["last_completed"] == datetime.date.today().isoformat(),
+        "all_complete": len(progress["completed_days"]) >= TOTAL_DAYS,
+        "phase_info": PHASE_INFO[content["phase"]],
+        "content": content,
+    }
+
+    # 복습 대기 건수 (홈은 개수만 필요하므로 목록은 만들지 않는다)
+    vocab_n = sum(
+        len(OPIC_CURRICULUM[d - 1]["vocab"])
+        for d in progress["completed_days"]
+        if (progress["day"] - d) in REVIEW_INTERVALS and 1 <= d <= len(OPIC_CURRICULUM)
+    )
+    try:
+        recent = get_recent_conversations(7)
+    except Exception:
+        recent = []
+    seen = set()
+    for row in recent:
+        if len(seen) >= 5:
+            break
+        orig = row.get("내 영어 문장", "")
+        if row.get("수정 필요") == "O" and row.get("수정된 문장") and orig:
+            seen.add(orig)
+    drill_n = len(_load_json_store("drill_mistakes", [], raw=cached.get("drill_mistakes"))[:5])
+    out["review"] = {
+        "counts": {"vocab": vocab_n, "correction": len(seen), "drill": drill_n},
+        "total": vocab_n + len(seen) + drill_n,
+    }
+
+    # 단계 목록 (정적)
+    out["levels"] = [
+        {**lv, "count": sum(1 for x in LEVEL_SENTENCES if x["level"] == lv["id"])}
+        for lv in LEVELS
+    ]
+
+    # 달력
+    try:
+        out["dates"] = get_dates_with_conversations()
+    except Exception:
+        out["dates"] = []
+
+    return jsonify(out)
 
 
 @app.route("/api/opic-today")
@@ -709,12 +808,13 @@ def api_opic_complete():
 REVIEW_INTERVALS = (1, 3, 7, 21)  # 에빙하우스 간격: 완료 후 1, 3, 7, 21일(커리큘럼 Day 기준)
 
 
-def _load_json_store(key, default):
-    """Sheets 캐시 우선, 로컬 JSON 파일 폴백"""
+def _load_json_store(key, default, raw=None):
+    """Sheets 캐시 우선, 로컬 JSON 파일 폴백. raw 를 주면 재조회하지 않는다."""
     db = get_db()
     if db:
         try:
-            raw = db.get_cache(key)
+            if raw is None:
+                raw = db.get_cache(key)
             if raw:
                 return json.loads(raw)
         except Exception as e:
@@ -794,7 +894,23 @@ def add_today_spend(amount):
 # 원본 client 를 비용 가드로 감싼다(app 전역 client 재할당).
 from cost_guard import GuardedOpenAI, BudgetExceededError
 
-client = GuardedOpenAI(client, get_today_spend, add_today_spend, DAILY_BUDGET_USD)
+
+class _LazyClient:
+    """첫 사용 시점에 openai 를 임포트하고 비용 가드로 감싼 클라이언트를 만든다."""
+
+    _real = None
+
+    def __getattr__(self, name):
+        if _LazyClient._real is None:
+            from openai import OpenAI
+            _LazyClient._real = GuardedOpenAI(
+                OpenAI(api_key=os.getenv("OPENAI_API_KEY")),
+                get_today_spend, add_today_spend, DAILY_BUDGET_USD,
+            )
+        return getattr(_LazyClient._real, name)
+
+
+client = _LazyClient()
 
 
 @app.route("/api/budget")
@@ -817,12 +933,24 @@ def _handle_budget_exceeded(e):
 
 @app.route("/api/review-today")
 def api_review_today():
-    """오늘의 복습 큐: 오픽 단어(간격 반복) + 최근 교정 문장 + 드릴 오답"""
+    """오늘의 복습 큐: 오픽 단어(간격 반복) + 최근 교정 문장 + 드릴 오답
+
+    Sheets 읽기는 캐시 1회 + 대화기록 1회로 끝낸다(예전엔 최대 9회 전체 읽기).
+    """
     from opic_curriculum import OPIC_CURRICULUM
     items = []
 
+    # 캐시 시트를 한 번만 읽어 진행률과 드릴 오답을 함께 가져온다
+    db = get_db()
+    cached = {}
+    if db:
+        try:
+            cached = db.get_cache_many(["opic_progress", "drill_mistakes"])
+        except Exception as e:
+            app.logger.error(f"review cache read failed: {e}")
+
     # 1) 오픽 단어 — 완료한 Day 중 1/3/7/21일 전 것 재출제
-    progress = get_opic_progress()
+    progress = get_opic_progress(raw=cached.get("opic_progress"))
     current_day = progress["day"]
     for d in progress["completed_days"]:
         if (current_day - d) in REVIEW_INTERVALS and 1 <= d <= len(OPIC_CURRICULUM):
@@ -832,30 +960,29 @@ def api_review_today():
                     "word": v["word"], "meaning": v["meaning"], "example": v["example"],
                 })
 
-    # 2) 최근 7일 회화 교정 문장 (중복 제거, 최대 5개)
+    # 2) 최근 7일 회화 교정 문장 (대화기록 1회 읽기, 최신순, 중복 제거, 최대 5개)
     corrections, seen = [], set()
-    for i in range(7):
-        date_str = (datetime.date.today() - datetime.timedelta(days=i)).isoformat()
-        try:
-            rows = get_conversations_for_date(date_str)
-        except Exception:
-            rows = []
-        for row in rows:
-            orig = row.get("내 영어 문장", "")
-            if row.get("수정 필요") == "O" and row.get("수정된 문장") and orig and orig not in seen:
-                seen.add(orig)
-                corrections.append({
-                    "type": "correction",
-                    "original": orig,
-                    "corrected": row["수정된 문장"],
-                    "explanation": row.get("수정 설명", ""),
-                })
+    try:
+        recent = get_recent_conversations(7)
+    except Exception as e:
+        app.logger.error(f"review conversations read failed: {e}")
+        recent = []
+    for row in recent:
         if len(corrections) >= 5:
             break
-    items.extend(corrections[:5])
+        orig = row.get("내 영어 문장", "")
+        if row.get("수정 필요") == "O" and row.get("수정된 문장") and orig and orig not in seen:
+            seen.add(orig)
+            corrections.append({
+                "type": "correction",
+                "original": orig,
+                "corrected": row["수정된 문장"],
+                "explanation": row.get("수정 설명", ""),
+            })
+    items.extend(corrections)
 
     # 3) 스피킹 드릴 오답 (최대 5개)
-    mistakes = _load_json_store("drill_mistakes", [])
+    mistakes = _load_json_store("drill_mistakes", [], raw=cached.get("drill_mistakes"))
     for m in mistakes[:5]:
         items.append({"type": "drill", "id": m["id"], "korean": m["korean"], "english": m["english"]})
 
@@ -906,7 +1033,7 @@ def api_level_list():
     for lv in LEVELS:
         count = sum(1 for s in LEVEL_SENTENCES if s["level"] == lv["id"])
         result.append({**lv, "count": count})
-    return jsonify(result)
+    return _static_json(result)
 
 
 @app.route("/api/level-next", methods=["POST"])
@@ -937,7 +1064,7 @@ def api_speaking_categories():
     for cat in SPEAKING_CATEGORIES:
         count = len(SPEAKING_SENTENCES) if cat["id"] == "전체" else sum(1 for s in SPEAKING_SENTENCES if s["category"] == cat["id"])
         cats.append({**cat, "count": count})
-    return jsonify(cats)
+    return _static_json(cats)
 
 
 @app.route("/api/speaking-next", methods=["POST"])

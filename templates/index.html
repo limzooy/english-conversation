@@ -567,9 +567,8 @@
     throw new Error('요청 실패: ' + url);
   }
 
-  async function loadActiveDates() {
-    const data = await fetchJSON('/api/calendar');
-    activeDates = new Set(data.dates);
+  function applyActiveDates(dates) {
+    activeDates = new Set(dates || []);
     renderCalendar();
   }
 
@@ -730,9 +729,8 @@
     }
   }
 
-  async function loadOpicToday() {
+  function renderOpicCard(data) {
     try {
-      const data = await fetchJSON('/api/opic-today');
       const c = data.content;
       const pct = Math.round((data.completed_count / data.total) * 100);
 
@@ -771,9 +769,8 @@
     }
   }
 
-  async function loadReviewToday() {
+  function renderReviewCard(data) {
     try {
-      const data = await fetchJSON('/api/review-today');
       if (!data.total) return;  // 복습할 것 없으면 카드 숨김 유지
       const c = data.counts;
       const parts = [];
@@ -786,10 +783,9 @@
     } catch (e) {}
   }
 
-  async function loadLevels() {
+  function renderLevelCard(levels) {
     try {
-      const levels = await fetchJSON('/api/level-list');
-      if (!levels.length) return;
+      if (!levels || !levels.length) return;
       document.getElementById('levelChips').innerHTML = levels.map(lv =>
         `<a href="/chat?mode=level&level=${lv.id}" class="level-chip">${lv.emoji} ${lv.title}</a>`
       ).join('');
@@ -797,12 +793,19 @@
     } catch (e) {}
   }
 
-  // 순차 로딩: 동시에 쏘면 서버리스 콜드스타트가 한꺼번에 일어나 일부 요청이 실패한다.
-  // 중요한 카드부터 하나씩 채운다.
+  // 홈 데이터는 /api/home 한 번으로 받아온다(서버리스 콜드스타트 중복 방지).
+  // 오늘의 단어만 느릴 수 있어(첫 호출 시 GPT 생성) 분리해서 이어서 받는다.
   (async () => {
-    for (const load of [loadOpicToday, loadActiveDates, loadLevels, loadReviewToday, loadDailyWords]) {
-      try { await load(); } catch (e) { /* 개별 실패가 나머지를 막지 않도록 */ }
+    try {
+      const home = await fetchJSON('/api/home');
+      renderOpicCard(home.opic);
+      applyActiveDates(home.dates);
+      renderLevelCard(home.levels);
+      renderReviewCard(home.review);
+    } catch (e) {
+      renderCalendar();  // 최소한 달력은 그린다
     }
+    try { await loadDailyWords(); } catch (e) {}
   })();
 </script>
 </body>

@@ -144,6 +144,12 @@ class SheetsDB:
         rows = self._read_all(SHEET_CONV)
         return [r for r in rows if r.get("날짜/시간", "").startswith(date_str)]
 
+    def get_conversations_since(self, date_str: str) -> list:
+        """date_str(YYYY-MM-DD) 이후 대화를 시트 1회 읽기로 반환(최신순)."""
+        rows = [r for r in self._read_all(SHEET_CONV)
+                if r.get("날짜/시간", "")[:10] >= date_str]
+        return sorted(rows, key=lambda r: r.get("날짜/시간", ""), reverse=True)
+
     def get_dates_with_conversations(self) -> list:
         rows = self._read_all(SHEET_CONV)
         dates = {r["날짜/시간"][:10] for r in rows if r.get("날짜/시간")}
@@ -179,6 +185,16 @@ class SheetsDB:
             self._append(SHEET_MEMO, [date_str, memo_text])
 
     # ── Cache ─────────────────────────────────────────────────────────
+
+    def get_cache_many(self, keys) -> dict:
+        """캐시 시트를 한 번만 읽어 여러 키를 한꺼번에 반환한다."""
+        wanted = set(keys)
+        out = {}
+        for row in self._read_all(SHEET_CACHE):
+            k = row.get("키")
+            if k in wanted and k not in out:
+                out[k] = row.get("값", "")
+        return out
 
     def get_cache(self, key: str):
         rows = self._read_all(SHEET_CACHE)
