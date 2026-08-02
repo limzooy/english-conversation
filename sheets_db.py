@@ -29,7 +29,14 @@ def _build_service():
     else:
         creds_file = os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json")
         creds = Credentials.from_service_account_file(creds_file, scopes=SCOPES)
-    return build("sheets", "v4", credentials=creds)
+    # static_discovery=True: 패키지에 동봉된 discovery 문서를 사용해 콜드스타트마다
+    # 발생하던 네트워크 왕복 1회를 제거한다(서버리스에서 타임아웃의 주요 원인이었음).
+    return build(
+        "sheets", "v4",
+        credentials=creds,
+        static_discovery=True,
+        cache_discovery=False,
+    )
 
 
 class SheetsDB:
